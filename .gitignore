@@ -8,14 +8,11 @@ env/
 venv/
 ENV/
 
-# Environment variables
-.env
-
 # Vector store (can be rebuilt)
 data/vectorstore/
 
-# Large PDFs (GitHub has 50MB limit)
-KB/*.pdf
+# Raw KB documents (too large for GitHub, use KB.zip instead)
+KB/
 
 # IDE
 .vscode/
@@ -27,3 +24,6 @@ KB/*.pdf
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Compressed KB (272MB - requires Git LFS or external hosting for GitHub)
+# KB.zip is intentionally not ignored - see README for download instructions

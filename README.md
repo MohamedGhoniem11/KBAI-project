@@ -13,8 +13,9 @@ RAG-based assistant for culinary arts using LangChain + LangGraph with Grok (xAI
 
 ## 📂 Project Structure
 ```
-├── KB/                  # Source PDF/DOCX (not committed to GitHub)
-├── data/vectorstore/    # FAISS index (not committed to GitHub)
+├── KB.zip               # Compressed source documents (272MB, see note below)
+├── KB/                  # Unzipped PDF/DOCX (not committed, gitignored)
+├── data/vectorstore/    # FAISS index (not committed, gitignored)
 ├── src/
 │   ├── config.py         # Thresholds, embedding model, disclaimer
 │   ├── ingestion.py      # PDF/DOCX loading + chunking (512 tokens, 64 overlap)
@@ -29,8 +30,8 @@ RAG-based assistant for culinary arts using LangChain + LangGraph with Grok (xAI
 ├── main.py              # CLI test interface (no Streamlit needed)
 ├── rebuild_and_test.py  # Rebuild vector store from KB documents
 ├── requirements.txt     # Dependencies
-├── .env                 # API keys (not committed)
-└── .gitignore           # Excludes vector store, .env, KB PDFs
+├── .env                 # API key template (committed with placeholder)
+└── .gitignore           # Excludes vector store, KB/ folder, IDE files
 ```
 
 ## 🚀 Setup Instructions (For New Machines)
@@ -38,21 +39,29 @@ RAG-based assistant for culinary arts using LangChain + LangGraph with Grok (xAI
 - Python 3.10+
 - Grok (xAI) API key from [xAI Console](https://console.x.ai/)
 
-### 2. Install Dependencies
+### 2. Clone & Install Dependencies
 ```bash
+git clone <your-repo-url>
+cd assgiment
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment
-Create `.env` file (already gitignored):
+### 3. Configure API Key
+The `.env` file is included with a placeholder. Replace the placeholder with your actual Grok API key:
 ```env
 LLM_PROVIDER=xai
-XAI_API_KEY=your_xai_grok_api_key_here
+XAI_API_KEY=your_actual_grok_api_key_here
 LLM_MODEL=grok-2-1212
 ```
 
-### 4. Add Source Documents
-Place PDF/DOCX files in the `KB/` directory (at least 10 required per project spec).
+### 4. Set Up Knowledge Base
+The source documents are compressed into `KB.zip` (272MB, exceeds GitHub's 50MB per-file limit). You have 2 options:
+- **Option A (Git LFS)**: Track `KB.zip` with Git LFS to commit it directly
+- **Option B (External Download)**: Download `KB.zip` from a separate host (Google Drive, etc.), place it in the project root, then unzip:
+  ```bash
+  unzip KB.zip -d KB/
+  ```
+- **Option C (Your Own Docs)**: Skip the zip, add at least 10 of your own PDF/DOCX files to the `KB/` folder
 
 ### 5. Rebuild Vector Store
 Run once to ingest documents and create FAISS index:
@@ -80,8 +89,9 @@ streamlit run app.py
 2. **Vector Store**: FAISS for fast ANN search (note: deletion requires rebuild; Chroma recommended for dynamic KB updates)
 3. **LangGraph Pipeline**: Looping agentic flow with reflection to ensure retrieval quality before generation
 4. **Hallucination Prevention**: Returns top 4 retrieved chunks alongside LLM answer for user verification
+5. **KB Compression**: Raw PDFs total 295MB, compressed to 272MB `KB.zip` (requires Git LFS for GitHub hosting)
 
-## ⚠️ Notes for GitHub Cloners
-- `KB/*.pdf`, `data/vectorstore/`, `.env` are not committed to GitHub
-- You must add your own PDF/DOCX to `KB/` and run `rebuild_and_test.py` before use
-- Get your own Grok API key and set it in `.env`
+## ⚠️ GitHub Notes
+- `.env` is committed with a placeholder API key (never commit real keys)
+- `KB.zip` is 272MB, exceeding GitHub's 50MB per-file limit. Use Git LFS or external hosting
+- `KB/` folder and `data/vectorstore/` are gitignored (not committed)
