@@ -43,7 +43,7 @@ def process_query(prompt: str):
     with st.spinner("Searching culinary knowledge base..."):
         try:
             result = system.query(prompt)
-            response = result["response"]
+            response = result["answer"]  # Updated key from "response" to "answer"
             # Append (question, response) tuple to history
             st.session_state.history.append((prompt, response))
         except Exception as e:
@@ -71,11 +71,11 @@ def main():
         st.header("ℹ️ System Info")
         st.markdown("""
         **Culinary RAG System**
-        - KB: 9 culinary PDFs (recipes, techniques, safety)
+        - KB: PDF/DOCX documents (add to KB/ folder)
         - Embeddings: all-MiniLM-L6-v2 (normalized)
-        - Retrieval: Top-5 chunks, 0.3 similarity threshold
-        - LLM: Ollama (llama3) - Free Local
-        - Pipeline: LangGraph Agentic
+        - Retrieval: Top-5 chunks, 0.65 cosine threshold
+        - LLM: Grok (xAI) only
+        - Pipeline: LangGraph Agentic (retrieve → reflect → generate)
         """)
         
         st.header("⚠️ Disclaimer (FR-07)")

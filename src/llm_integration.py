@@ -1,12 +1,13 @@
 # =============================================================================
-# LLM Integration Module (FR-04, FR-05)
+# LLM Integration Module (FR-04, FR-05, FR-07)
 # =============================================================================
-# Generates structured, grounded responses with inline citations (no disclaimers)
+# Generates grounded, cited responses using Grok (xAI) only
+# Appends domain disclaimer to every response
 
 import os
 from typing import List, Dict
 
-from langchain_openai import ChatOpenAI
+from langchain_xai import ChatXAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from .config import DOMAIN_DISCLAIMER
@@ -14,41 +15,27 @@ from .retrieval import RetrievedChunk
 
 
 class LLMGenerator:
-    """LLM integration for grounded generation (FR-04)."""
+    """Grok-only LLM integration for grounded generation (FR-04)."""
     
-    def __init__(self, provider: str = "openai", model: str = "gpt-4o-mini"):
-        self.provider = provider
+    def __init__(self, model: str = "grok-2-1212"):
         self.model = model
         self.llm = self._init_llm()
         self.prompt = self._build_prompt_template()
     
     def _init_llm(self):
-        """Initialize LLM."""
-        if self.provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                print("Warning: OPENAI_API_KEY not set - using fallback")
-                return None
-            return ChatOpenAI(model=self.model, api_key=api_key, temperature=0.1)
-        elif self.provider == "groq":
-            try:
-                from langchain_groq import ChatGroq
-                api_key = os.getenv("GROQ_API_KEY")
-                if not api_key:
-                    print("Warning: GROQ_API_KEY not set - using fallback mode")
-                    return None
-                return ChatGroq(
-                    model=self.model,
-                    api_key=api_key,
-                    temperature=0.1
-                )
-            except ImportError:
-                print("Error: langchain-groq not installed. Run: pip install langchain-groq")
-                return None
-        return None
+        """Initialize Grok (xAI) LLM only."""
+        api_key = os.getenv("XAI_API_KEY")
+        if not api_key or api_key == "your_xai_grok_api_key_here":
+            raise ValueError("XAI_API_KEY not set in .env file")
+        
+        return ChatXAI(
+            model=self.model,
+            api_key=api_key,
+            temperature=0.1
+        )
     
     def _build_prompt_template(self) -> ChatPromptTemplate:
-        """Build structured prompt template for consistent answers."""
+        """Build prompt enforcing grounded generation (FR-04, FR-05)."""
         return ChatPromptTemplate.from_messages([
             ("system", """You are a culinary expert assistant. Your response must be based ONLY on the provided retrieved context.
             
@@ -59,22 +46,14 @@ INSTRUCTIONS:
 1. Answer the user's question clearly and concisely using ONLY the context above
 2. Do not hallucinate or add information not present in the context
 3. Cite sources inline using [Source X] format matching the context labels
-4. Structure your response with:
-   - Direct answer to the question first
-   - Additional details from context
-   - List of relevant tips if applicable
-5. If no relevant context is found, state that clearly
-6. Do not include any disclaimers (these are shown separately in the UI)"""),
+4. If no relevant context is found, state that clearly
+5. Do not include any disclaimers (these are appended automatically)"""),
             ("user", "USER QUESTION: {query}")
         ])
     
-    def generate(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> str:
-        """Generate structured response with citations (FR-04, FR-05)."""
-        
-        if not self.llm:
-            return self._generate_fallback(query, chunks, citations)
-        
-        # Build context from retrieved chunks with source labels
+    def generate(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> dict:
+        """Generate response with citations and disclaimer (FR-04, FR-05, FR-07)."""
+        # Build context from retrieved chunks
         context_parts = []
         for i, chunk in enumerate(chunks):
             context_parts.append(f"[Source {i+1}] (Page {chunk.page}, {chunk.source}): {chunk.content}")
@@ -82,19 +61,25 @@ INSTRUCTIONS:
         context = "\n\n".join(context_parts) if context_parts else "No relevant context found."
         
         try:
-            # Generate response using prompt template
+            # Generate response using Grok
             chain = self.prompt | self.llm
             response = chain.invoke({"context": context, "query": query})
-            content = response.content.strip()
+            answer = response.content.strip()
             
-            # Add formatted sources section
+            # Format citations
             citations_text = self._format_citations(citations)
-            result = f"{content}\n\n---\n**Sources:**\n{citations_text}"
             
-            return result
+            # Append disclaimer (FR-07)
+            full_response = f"{answer}\n\n---\n**Sources:**\n{citations_text}\n\n{DOMAIN_DISCLAIMER}"
+            
+            return {
+                "answer": full_response,
+                "retrieved_chunks": [chunk.model_dump() for chunk in chunks[:4]],  # Top 4 chunks for verification
+                "citations": citations
+            }
             
         except Exception as e:
-            print(f"LLM error: {e}")
+            print(f"Grok API error: {e}")
             return self._generate_fallback(query, chunks, citations)
     
     def _format_citations(self, citations: List[Dict]) -> str:
@@ -111,20 +96,27 @@ INSTRUCTIONS:
         
         return "\n".join(lines)
     
-    def _generate_fallback(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> str:
-        """Improved fallback without LLM."""
+    def _generate_fallback(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> dict:
+        """Fallback without LLM (returns retrieved chunks for verification)."""
         if not chunks:
-            return "I don't have relevant information about that in my culinary knowledge base. Try asking about recipes, cooking techniques, or food safety."
+            return {
+                "answer": "I don't have relevant information in my knowledge base. Try asking about recipes, cooking techniques, or food safety.",
+                "retrieved_chunks": [],
+                "citations": []
+            }
         
         lines = ["Here's what I found in my knowledge base:\n"]
-        
-        for i, chunk in enumerate(chunks[:5]):
+        for i, chunk in enumerate(chunks[:4]):  # Top 4 chunks
             content = chunk.content.strip()[:300]
             lines.append(f"**[Source {i+1}]** (Page {chunk.page}, {chunk.source}):\n{content}...\n")
         
-        return "\n".join(lines)
+        return {
+            "answer": "\n".join(lines),
+            "retrieved_chunks": [chunk.model_dump() for chunk in chunks[:4]],
+            "citations": citations
+        }
 
 
-def create_llm_generator(provider: str = "openai", model: str = "gpt-4o-mini") -> LLMGenerator:
-    """Factory function."""
-    return LLMGenerator(provider, model)
+def create_llm_generator(model: str = "grok-2-1212") -> LLMGenerator:
+    """Factory function for Grok-only LLM generator."""
+    return LLMGenerator(model)

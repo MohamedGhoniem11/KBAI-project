@@ -16,7 +16,7 @@ CHUNK_OVERLAP = 64
 
 # --- Retrieval Parameters (Stage 2: FR-03) ---
 TOP_K = 5
-SIMILARITY_THRESHOLD = 0.3  # FR-03: Lowered for MiniLM (typical scores 0.2-0.8 range)
+SIMILARITY_THRESHOLD = 0.65  # FR-03: Minimum cosine similarity threshold
 
 # --- Embedding Model (FR-02) ---
 # Justification: all-MiniLM-L6-v2 provides strong semantic similarity

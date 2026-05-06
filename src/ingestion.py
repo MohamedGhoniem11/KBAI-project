@@ -1,13 +1,13 @@
 # =============================================================================
 # Stage 1: Document Ingestion Pipeline
 # =============================================================================
-# Loads PDFs, chunks at 512 tokens with 64-token overlap
+# Loads PDFs and DOCX, chunks at 512 tokens with 64-token overlap
 
 from pathlib import Path
 from typing import List
 import warnings
 
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -17,22 +17,25 @@ from .config import DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 warnings.filterwarnings("ignore")
 
 
-def get_pdf_files(directory: Path) -> List[Path]:
-    """Get all PDF files from the documents directory."""
+def get_document_files(directory: Path) -> List[Path]:
+    """Get all PDF and DOCX files from the documents directory."""
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory}")
     
     pdf_files = list(directory.glob("*.pdf"))
-    if not pdf_files:
-        raise ValueError(f"No PDF files found in {directory}")
+    docx_files = list(directory.glob("*.docx"))
+    all_files = pdf_files + docx_files
     
-    return pdf_files
+    if not all_files:
+        raise ValueError(f"No PDF/DOCX files found in {directory}")
+    
+    return all_files
 
 
 def load_single_pdf(pdf_path: Path) -> List[Document]:
     """Load a single PDF with robust error handling."""
     documents = []
-    print(f"  Loading: {pdf_path.name}")
+    print(f"  Loading PDF: {pdf_path.name}")
     
     try:
         loader = PyPDFLoader(str(pdf_path))
@@ -69,12 +72,42 @@ def load_single_pdf(pdf_path: Path) -> List[Document]:
     return documents
 
 
-def load_documents(pdf_files: List[Path]) -> List[Document]:
-    """Load all PDF documents with page numbers."""
+def load_single_docx(docx_path: Path) -> List[Document]:
+    """Load a single DOCX file."""
+    documents = []
+    print(f"  Loading DOCX: {docx_path.name}")
+    
+    try:
+        loader = Docx2txtLoader(str(docx_path))
+        docs = loader.load()
+        
+        for i, doc in enumerate(docs):
+            text = doc.page_content.strip()
+            if text and len(text) > 20:
+                doc.page_content = text
+                doc.metadata["source"] = docx_path.name
+                doc.metadata["page"] = i + 1  # FR-05: page number
+                documents.append(doc)
+        
+        print(f"    ✅ Loaded {len(documents)} sections from {docx_path.name}")
+        
+    except Exception as e:
+        print(f"    ❌ Error loading {docx_path.name}: {e}")
+    
+    return documents
+
+
+def load_documents(document_files: List[Path]) -> List[Document]:
+    """Load all PDF and DOCX documents with page numbers."""
     documents = []
     
-    for pdf_file in pdf_files:
-        docs = load_single_pdf(pdf_file)
+    for file_path in document_files:
+        if file_path.suffix.lower() == ".pdf":
+            docs = load_single_pdf(file_path)
+        elif file_path.suffix.lower() == ".docx":
+            docs = load_single_docx(file_path)
+        else:
+            continue
         documents.extend(docs)
     
     return documents
@@ -99,12 +132,12 @@ def split_documents(documents: List[Document]) -> List[Document]:
 
 
 def ingest_documents() -> List[Document]:
-    """Full ingestion pipeline: load PDFs and split into chunks."""
-    pdf_files = get_pdf_files(DOCS_DIR)
-    print(f"Found {len(pdf_files)} PDF files")
+    """Full ingestion pipeline: load PDFs/DOCX and split into chunks."""
+    document_files = get_document_files(DOCS_DIR)
+    print(f"Found {len(document_files)} PDF/DOCX files")
     
-    documents = load_documents(pdf_files)
-    print(f"Total pages loaded: {len(documents)}")
+    documents = load_documents(document_files)
+    print(f"Total pages/sections loaded: {len(documents)}")
     
     chunks = split_documents(documents)
     
