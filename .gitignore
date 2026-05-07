@@ -1,6 +1,6 @@
 # Python
 __pycache__/
-*.py[cod]
+*.py[cod] 
 *$py.class
 *.so
 .Python
@@ -8,11 +8,13 @@ env/
 venv/
 ENV/
 
-# Vector store (can be rebuilt)
+# Vector stores (can be rebuilt)
 data/vectorstore/
+data/vectorstore_standalone/
 
 # Raw KB documents (too large for GitHub, use KB.zip instead)
 KB/
+KB.zip
 
 # IDE
 .vscode/
@@ -24,6 +26,3 @@ KB/
 Thumbs.db
 Desktop.ini
 .DS_Store
-
-# Compressed KB (272MB - requires Git LFS or external hosting for GitHub)
-# KB.zip is intentionally not ignored - see README for download instructions

@@ -29,7 +29,8 @@ class RetrievalEngine:
     
     def retrieve(self, query: str) -> List[RetrievedChunk]:
         """Retrieve top-k chunks with similarity >= threshold (FR-03)."""
-        docs_with_scores = self.vectorstore.similarity_search_with_relevance_scores(
+        # Use raw similarity score (cosine similarity for IP distance on normalized emb)
+        docs_with_scores = self.vectorstore.similarity_search_with_score(
             query=query,
             k=self.top_k
         )
@@ -40,7 +41,6 @@ class RetrievalEngine:
         
         retrieved = []
         for doc, score in docs_with_scores:
-            # FAISS returns cosine similarity (when normalized)
             print(f"[Retrieval] Chunk score: {score:.4f} (threshold: {self.threshold})")
             if score >= self.threshold:
                 retrieved.append(RetrievedChunk(

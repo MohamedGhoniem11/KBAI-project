@@ -13,7 +13,7 @@ RAG-based assistant for culinary arts using LangChain + LangGraph with Grok (xAI
 
 ## 📂 Project Structure
 ```
-├── KB.zip               # Compressed source documents (272MB, see note below)
+├── KB.zip               # Compressed source documents (272MB)
 ├── KB/                  # Unzipped PDF/DOCX (not committed, gitignored)
 ├── data/vectorstore/    # FAISS index (not committed, gitignored)
 ├── src/
@@ -28,7 +28,7 @@ RAG-based assistant for culinary arts using LangChain + LangGraph with Grok (xAI
 ├── tests/               # Test files
 ├── app.py               # Streamlit web UI
 ├── main.py              # CLI test interface (no Streamlit needed)
-├── rebuild_and_test.py  # Rebuild vector store from KB documents
+├── rebuild_and_test.py  # Rebuild vector store (auto-downloads KB.zip if missing)
 ├── requirements.txt     # Dependencies
 ├── .env                 # API key template (committed with placeholder)
 └── .gitignore           # Excludes vector store, KB/ folder, IDE files
@@ -55,19 +55,26 @@ LLM_MODEL=grok-2-1212
 ```
 
 ### 4. Set Up Knowledge Base
-The source documents are compressed into `KB.zip` (272MB, exceeds GitHub's 50MB per-file limit). You have 2 options:
-- **Option A (Git LFS)**: Track `KB.zip` with Git LFS to commit it directly
-- **Option B (External Download)**: Download `KB.zip` from a separate host (Google Drive, etc.), place it in the project root, then unzip:
-  ```bash
-  unzip KB.zip -d KB/
-  ```
-- **Option C (Your Own Docs)**: Skip the zip, add at least 10 of your own PDF/DOCX files to the `KB/` folder
+The source documents are compressed into `KB.zip` (225MB).  
+**Download link (Google Drive):**  
+[Download KB.zip](https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4)
+
+After downloading, place `KB.zip` in the project root and unzip:
+```bash
+# Windows (PowerShell)
+Expand-Archive KB.zip -DestinationPath KB/
+
+# macOS/Linux
+unzip KB.zip -d KB/
+```
+Alternatively, add your own PDF/DOCX files (at least 10) to the `KB/` folder.
 
 ### 5. Rebuild Vector Store
 Run once to ingest documents and create FAISS index:
 ```bash
 python rebuild_and_test.py
 ```
+If `KB/` is missing, the script will attempt to download `KB.zip` from the Google Drive link automatically.
 
 ## 🧪 Testing Without Streamlit
 Run CLI tests with Grok API:
@@ -88,10 +95,17 @@ streamlit run app.py
 1. **Embedding Model**: `all-MiniLM-L6-v2` chosen for fast inference + strong culinary term matching
 2. **Vector Store**: FAISS for fast ANN search (note: deletion requires rebuild; Chroma recommended for dynamic KB updates)
 3. **LangGraph Pipeline**: Looping agentic flow with reflection to ensure retrieval quality before generation
-4. **Hallucination Prevention**: Returns top 4 retrieved chunks alongside LLM answer for user verification
-5. **KB Compression**: Raw PDFs total 295MB, compressed to 272MB `KB.zip` (requires Git LFS for GitHub hosting)
+4. **Hallucination Prevention**: Returns top4 retrieved chunks alongside LLM answer for user verification
+5. **KB Compression**: Raw PDFs total 295MB, compressed to 272MB `KB.zip`
 
 ## ⚠️ GitHub Notes
 - `.env` is committed with a placeholder API key (never commit real keys)
-- `KB.zip` is 272MB, exceeding GitHub's 50MB per-file limit. Use Git LFS or external hosting
+- `KB.zip` is 272MB, exceeding GitHub's 50MB per-file limit. Use Git LFS or external hosting (Google Drive link provided)
 - `KB/` folder and `data/vectorstore/` are gitignored (not committed)
+
+## 📎 How to Update the Google Drive Link
+1. Upload `KB.zip` to your Google Drive
+2. Right-click → Share → Change to "Anyone with the link"
+3. Copy the share link (format: `https://drive.google.com/file/d/FILE_ID/view?usp=sharing`)
+4. Extract the `FILE_ID` (the string after `/d/` and before `/view`)
+5. Replace `1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4` in this README and in `rebuild_and_test.py` with your actual FILE_ID

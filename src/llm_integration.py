@@ -17,7 +17,7 @@ from .retrieval import RetrievedChunk
 class LLMGenerator:
     """Grok-only LLM integration for grounded generation (FR-04)."""
     
-    def __init__(self, model: str = "grok-2-1212"):
+    def __init__(self, model: str = "grok-3-latest"):
         self.model = model
         self.llm = self._init_llm()
         self.prompt = self._build_prompt_template()

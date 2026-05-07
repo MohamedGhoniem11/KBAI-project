@@ -7,9 +7,8 @@
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-from pathlib import Path
 import sys
-sys.path.insert(0, "C:/study folder/Kbai/assgiment")
+from pathlib import Path
 
 # Load .env file if available
 try:
@@ -17,11 +16,6 @@ try:
     load_dotenv()
 except ImportError:
     pass
-
-# Check for Grok API key
-if "XAI_API_KEY" not in os.environ or os.environ["XAI_API_KEY"] == "your_xai_grok_api_key_here":
-    print("Error: XAI_API_KEY not set in .env file. Grok API required.")
-    sys.exit(1)
 
 from src.vectorstore import load_vectorstore, save_vectorstore
 from src.retrieval import create_retrieval_engine
@@ -43,6 +37,11 @@ class CulinaryRAGSystem:
         if self._initialized:
             return
         
+        # Check for Grok API key
+        if "XAI_API_KEY" not in os.environ or not os.environ["XAI_API_KEY"] or os.environ["XAI_API_KEY"] == "your_xai_grok_api_key_here":
+            print("Error: XAI_API_KEY not set in .env file. Grok API required.")
+            sys.exit(1)
+        
         print("Initializing Culinary RAG System (Grok-only)...")
         
         # Stage 1: Load vector store
@@ -55,7 +54,7 @@ class CulinaryRAGSystem:
         
         # Initialize Grok LLM
         print("[Stage 3] Initializing Grok LLM...")
-        model = os.getenv("LLM_MODEL", "grok-2-1212")
+        model = os.getenv("LLM_MODEL", "grok-3-latest")
         self.llm = create_llm_generator(model)
         
         self._initialized = True
@@ -148,7 +147,16 @@ def get_system() -> CulinaryRAGSystem:
 
 def main():
     """Test the system via CLI (no Streamlit needed)."""
-    system = get_system()
+    use_standalone = "--standalone" in sys.argv
+    
+    if use_standalone:
+        from standalone.pipeline import StandaloneRAGSystem
+        system = StandaloneRAGSystem()
+        print("Mode: Standalone (no LangChain)")
+    else:
+        system = get_system()
+        print("Mode: LangChain + LangGraph")
+    
     system.initialize()
     
     # Test queries

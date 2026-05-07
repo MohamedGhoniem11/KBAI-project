@@ -3,7 +3,6 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import streamlit as st
 
-from main import get_system, CulinaryRAGSystem
 from src.config import DOMAIN_DISCLAIMER
 
 # set_page_config MUST be the first Streamlit command
@@ -32,9 +31,18 @@ st.markdown("""
 def init_session():
     if "rag_system" not in st.session_state:
         st.session_state.rag_system = None
-    # History stores (question, response) tuples
+    if "mode" not in st.session_state:
+        st.session_state.mode = "LangChain + LangGraph"
     if "history" not in st.session_state:
         st.session_state.history = []
+
+
+def get_system_for_mode(mode: str):
+    if mode == "Standalone (no LangChain)":
+        from standalone.pipeline import StandaloneRAGSystem
+        return StandaloneRAGSystem()
+    from main import get_system
+    return get_system()
 
 
 def process_query(prompt: str):
@@ -61,21 +69,34 @@ def main():
     # Initialize system once
     if st.session_state.rag_system is None:
         with st.spinner("Loading culinary knowledge base..."):
-            st.session_state.rag_system = get_system()
+            st.session_state.rag_system = get_system_for_mode(st.session_state.mode)
             st.session_state.rag_system.initialize()
     
     system = st.session_state.rag_system
     
     # Sidebar with disclaimer and info
     with st.sidebar:
+        mode = st.radio(
+            "Select RAG Engine",
+            ["LangChain + LangGraph", "Standalone (no LangChain)"],
+            index=0 if st.session_state.mode == "LangChain + LangGraph" else 1,
+            key="mode_selector"
+        )
+        if mode != st.session_state.mode:
+            st.session_state.mode = mode
+            st.session_state.rag_system = None
+            st.rerun()
+        
+        st.markdown("---")
         st.header("ℹ️ System Info")
-        st.markdown("""
+        pipeline_text = "LangGraph Agentic (retrieve → reflect → generate)" if st.session_state.mode == "LangChain + LangGraph" else "Linear (retrieve → generate)"
+        st.markdown(f"""
         **Culinary RAG System**
         - KB: PDF/DOCX documents (add to KB/ folder)
         - Embeddings: all-MiniLM-L6-v2 (normalized)
         - Retrieval: Top-5 chunks, 0.65 cosine threshold
         - LLM: Grok (xAI) only
-        - Pipeline: LangGraph Agentic (retrieve → reflect → generate)
+        - Pipeline: {pipeline_text}
         """)
         
         st.header("⚠️ Disclaimer (FR-07)")

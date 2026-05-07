@@ -6,9 +6,12 @@
 
 from pathlib import Path
 
+# --- Project Root (derived from this file's location) ---
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 # --- File Paths ---
-DOCS_DIR = Path("C:/study folder/Kbai/assgiment/KB")
-VECTORSTORE_DIR = Path("C:/study folder/Kbai/assgiment/data/vectorstore")
+DOCS_DIR = PROJECT_ROOT / "KB"
+VECTORSTORE_DIR = PROJECT_ROOT / "data" / "vectorstore"
 
 # --- Ingestion Parameters (Stage 1) ---
 CHUNK_SIZE = 512
