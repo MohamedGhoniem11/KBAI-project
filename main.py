@@ -1,16 +1,18 @@
 # =============================================================================
 # Main RAG System (All Requirements)
 # =============================================================================
-# Integrates all stages: Ingestion, Retrieval, Generation
-# Uses Grok (xAI) exclusively
+# Entry point for CLI mode. Integrates all 3 stages: Ingestion → Retrieval → Generation.
+# Orchestrates the LangGraph pipeline + Grok LLM call.
+# Usage: python main.py             (LangChain + LangGraph mode)
+#        python main.py --standalone (pure Python, no LangChain)
 
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TensorFlow warnings
 
 import sys
 from pathlib import Path
 
-# Load .env file if available
+# Load .env file if available (contains XAI_API_KEY)
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -19,40 +21,41 @@ except ImportError:
 
 from src.vectorstore import load_vectorstore, save_vectorstore
 from src.retrieval import create_retrieval_engine
-from src.langgraph_pipeline import run_agentic_pipeline
+from src.langgraph_pipeline import run_agentic_pipeline  # LangGraph stateful graph
 from src.llm_integration import create_llm_generator
 
 
 class CulinaryRAGSystem:
-    """Main RAG system using Grok exclusively."""
+    """Main orchestrator: loads vector store → creates retriëval engine → initializes Grok LLM.
+    Exposes query() for single-turn Q&A and add_document() for KB updates."""
     
     def __init__(self):
         self.vectorstore = None
         self.retrieval_engine = None
         self.llm = None
-        self._initialized = False
+        self._initialized = False  # Lazy initialization
     
     def initialize(self):
-        """Initialize system (Stage 1 & 2)."""
+        """Initialize all 3 stages. Safe to call multiple times (idempotent)."""
         if self._initialized:
             return
         
-        # Check for Grok API key
+        # Check for Grok API key before attempting anything
         if "XAI_API_KEY" not in os.environ or not os.environ["XAI_API_KEY"] or os.environ["XAI_API_KEY"] == "your_xai_grok_api_key_here":
             print("Error: XAI_API_KEY not set in .env file. Grok API required.")
             sys.exit(1)
         
         print("Initializing Culinary RAG System (Grok-only)...")
         
-        # Stage 1: Load vector store
+        # Stage 1: Load pre-built FAISS vector store (built by rebuild_and_test.py)
         print("\n[Stage 1] Loading vector store...")
         self.vectorstore = load_vectorstore()
         
-        # Stage 2: Create retrieval engine
+        # Stage 2: Create retrieval engine (wraps FAISS with top-k + threshold logic)
         print("[Stage 2] Setting up retrieval engine...")
         self.retrieval_engine = create_retrieval_engine(self.vectorstore)
         
-        # Initialize Grok LLM
+        # Stage 3: Initialize Grok LLM (reads XAI_API_KEY from .env)
         print("[Stage 3] Initializing Grok LLM...")
         model = os.getenv("LLM_MODEL", "grok-3-latest")
         self.llm = create_llm_generator(model)
@@ -61,7 +64,8 @@ class CulinaryRAGSystem:
         print("\n✅ System initialized successfully")
     
     def query(self, question: str) -> dict:
-        """Process query through all stages (FR-01). Returns answer + top 4 chunks for verification."""
+        """Process a question through the full RAG pipeline.
+        Returns: answer text, top-4 retrieved chunks (for verification), citations."""
         if not self._initialized:
             self.initialize()
         
@@ -69,13 +73,14 @@ class CulinaryRAGSystem:
         print(f"Query: {question}")
         print('='*50)
         
-        # Stage 2: Semantic Retrieval (agentic pipeline)
+        # Stage 2: Semantic Retrieval via LangGraph agentic pipeline
+        # (retrieve → reflect → re-retrieve if needed → generate context)
         result = run_agentic_pipeline(question, self.retrieval_engine)
         
         chunks = result.get("retrieved_chunks", [])
         citations = result.get("citations", [])
         
-        # Stage 3: Augmented Generation (Grok-only)
+        # Stage 3: Augmented Generation — Grok answers grounded in retrieved chunks
         response = self.llm.generate(question, chunks, citations)
         
         return {
@@ -87,7 +92,8 @@ class CulinaryRAGSystem:
         }
     
     def add_document(self, file_path: Path):
-        """Add PDF/DOCX to KB (FR-06: KB Update)."""
+        """Add a new PDF/DOCX to the knowledge base at runtime (FR-06).
+        Loads the document, chunks it, appends to existing FAISS index (no full rebuild)."""
         from langchain_text_splitters import RecursiveCharacterTextSplitter
         from src.config import CHUNK_SIZE, CHUNK_OVERLAP
         
@@ -96,7 +102,7 @@ class CulinaryRAGSystem:
         
         print(f"Adding document: {file_path.name}")
         
-        # Load document based on type
+        # Load document based on extension
         docs = []
         if file_path.suffix.lower() == ".pdf":
             from langchain_community.document_loaders import PyPDFLoader
@@ -109,7 +115,7 @@ class CulinaryRAGSystem:
         else:
             raise ValueError(f"Unsupported file type: {file_path.suffix}")
         
-        # Add metadata
+        # Tag all chunks with the source filename
         for doc in docs:
             doc.metadata["source"] = file_path.name
         
@@ -120,7 +126,7 @@ class CulinaryRAGSystem:
         )
         new_chunks = splitter.split_documents(docs)
         
-        # Add to vector store (no retraining needed)
+        # Append to existing FAISS index (no need to rebuild from scratch)
         self.vectorstore.add_documents(new_chunks)
         save_vectorstore(self.vectorstore)
         
@@ -128,17 +134,18 @@ class CulinaryRAGSystem:
         return len(new_chunks)
     
     def remove_document(self, source_name: str):
-        """Remove document from KB (FR-06: KB Update)."""
+        """Remove document from KB (FR-06: KB Update).
+        NOTE: FAISS does NOT support individual document deletion — requires full rebuild."""
         print(f"Removing: {source_name}")
         print("Note: FAISS requires full rebuild to remove documents. Delete file from KB/ and run rebuild_and_test.py")
         print("For dynamic deletion, consider switching to Chroma vector store.")
 
 
-_system = None
+_system = None  # Singleton instance
 
 
 def get_system() -> CulinaryRAGSystem:
-    """Get or create system."""
+    """Get or create the singleton RAG system (lazy initialization)."""
     global _system
     if _system is None:
         _system = CulinaryRAGSystem()
@@ -146,7 +153,7 @@ def get_system() -> CulinaryRAGSystem:
 
 
 def main():
-    """Test the system via CLI (no Streamlit needed)."""
+    """CLI entry point: runs 3 test queries to demonstrate the system."""
     use_standalone = "--standalone" in sys.argv
     
     if use_standalone:
@@ -159,7 +166,7 @@ def main():
     
     system.initialize()
     
-    # Test queries
+    # Test queries covering different culinary topics
     test_queries = [
         "How do I make fresh pasta?",
         "What is the safe internal temperature for chicken?",

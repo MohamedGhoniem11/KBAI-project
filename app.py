@@ -1,11 +1,18 @@
-import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+# =============================================================================
+# Streamlit Web UI (FR-01: Natural Language Interface)
+# =============================================================================
+# Provides a chat-based UI for the Culinary RAG system.
+# Supports switching between LangChain and Standalone modes via sidebar radio.
+# Run with: streamlit run app.py
 
-import streamlit as st
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TF warnings in Streamlit logs
+
+import streamlit as st  # Web app framework — turns Python scripts into interactive UIs
 
 from src.config import DOMAIN_DISCLAIMER
 
-# set_page_config MUST be the first Streamlit command
+# set_page_config MUST be the first Streamlit command (Streamlit requirement)
 st.set_page_config(
     page_title="Culinary RAG Assistant",
     page_icon="🍳",
@@ -29,15 +36,17 @@ st.markdown("""
 
 
 def init_session():
+    """Initialize Streamlit session state variables (persist across reruns)."""
     if "rag_system" not in st.session_state:
         st.session_state.rag_system = None
     if "mode" not in st.session_state:
         st.session_state.mode = "LangChain + LangGraph"
     if "history" not in st.session_state:
-        st.session_state.history = []
+        st.session_state.history = []  # List of (question, answer) tuples
 
 
 def get_system_for_mode(mode: str):
+    """Return the appropriate RAG system based on selected mode."""
     if mode == "Standalone (no LangChain)":
         from standalone.pipeline import StandaloneRAGSystem
         return StandaloneRAGSystem()
@@ -46,13 +55,12 @@ def get_system_for_mode(mode: str):
 
 
 def process_query(prompt: str):
-    """Unified query processing for chat input and buttons."""
+    """Unified query processing for chat input and sample question buttons."""
     system = st.session_state.rag_system
     with st.spinner("Searching culinary knowledge base..."):
         try:
             result = system.query(prompt)
-            response = result["answer"]  # Updated key from "response" to "answer"
-            # Append (question, response) tuple to history
+            response = result["answer"]
             st.session_state.history.append((prompt, response))
         except Exception as e:
             error_msg = f"Error processing query: {str(e)}"
@@ -66,7 +74,7 @@ def main():
     
     init_session()
     
-    # Initialize system once
+    # Lazy-initialize the RAG system (once, then reuse across reruns)
     if st.session_state.rag_system is None:
         with st.spinner("Loading culinary knowledge base..."):
             st.session_state.rag_system = get_system_for_mode(st.session_state.mode)
@@ -74,7 +82,7 @@ def main():
     
     system = st.session_state.rag_system
     
-    # Sidebar with disclaimer and info
+    # Sidebar: mode selection, system info, disclaimer, sample questions
     with st.sidebar:
         mode = st.radio(
             "Select RAG Engine",
@@ -84,7 +92,7 @@ def main():
         )
         if mode != st.session_state.mode:
             st.session_state.mode = mode
-            st.session_state.rag_system = None
+            st.session_state.rag_system = None  # Force re-initialization
             st.rerun()
         
         st.markdown("---")
@@ -124,7 +132,7 @@ def main():
         with st.chat_message("assistant"):
             st.markdown(r)
     
-    # Chat input
+    # Chat input at the bottom
     prompt = st.chat_input("Ask about culinary techniques, recipes, food safety...")
     
     if prompt:

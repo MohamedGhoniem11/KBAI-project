@@ -1,13 +1,15 @@
 # =============================================================================
 # Vector Store Module
 # =============================================================================
-# Uses FAISS for ANN search
+# Manages FAISS (Facebook AI Similarity Search) index — our vector database.
+# Provides create/save/load helpers so the rest of the code doesn't touch FAISS directly.
+# Uses Approximate Nearest Neighbor (ANN) for fast semantic search.
 
 from pathlib import Path
 from typing import List, Optional
 
-from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.utils import DistanceStrategy
+from langchain_community.vectorstores import FAISS  # LangChain wrapper for FAISS
+from langchain_community.vectorstores.utils import DistanceStrategy  # Enum: COSINE, IP, etc.
 from langchain_core.documents import Document
 
 from .config import VECTORSTORE_DIR
@@ -15,9 +17,10 @@ from .embeddings import create_embeddings
 
 
 def create_vectorstore(chunks: List[Document]) -> FAISS:
-    """Create FAISS vector store from document chunks."""
+    """Embed all chunks and build a new FAISS index from scratch."""
     embeddings = create_embeddings()
     
+    # MAX_INNER_PRODUCT = cosine similarity when embeddings are L2-normalized
     vectorstore = FAISS.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -28,7 +31,7 @@ def create_vectorstore(chunks: List[Document]) -> FAISS:
 
 
 def save_vectorstore(vectorstore: FAISS, path: Optional[Path] = None):
-    """Save vector store to disk."""
+    """Persist FAISS index + metadata to disk (creates index.faiss + index.pkl)."""
     path = path or VECTORSTORE_DIR
     path.mkdir(parents=True, exist_ok=True)
     
@@ -37,13 +40,14 @@ def save_vectorstore(vectorstore: FAISS, path: Optional[Path] = None):
 
 
 def load_vectorstore(path: Optional[Path] = None) -> FAISS:
-    """Load vector store from disk."""
+    """Load previously saved FAISS index + metadata from disk."""
     path = path or VECTORSTORE_DIR
     
     if not path.exists():
         raise FileNotFoundError(f"Vector store not found at {path}")
     
     embeddings = create_embeddings()
+    # allow_dangerous_deserialization=True — required by LangChain for pickle-based metadata
     vectorstore = FAISS.load_local(
         str(path),
         embeddings,
@@ -55,7 +59,7 @@ def load_vectorstore(path: Optional[Path] = None) -> FAISS:
 
 
 def build_or_load_vectorstore(chunks: List[Document] = None) -> FAISS:
-    """Build new or load existing vector store."""
+    """Load existing index if available, otherwise build new one from chunks."""
     if VECTORSTORE_DIR.exists() and (VECTORSTORE_DIR / "index.faiss").exists():
         return load_vectorstore()
     

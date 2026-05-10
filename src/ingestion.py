@@ -1,15 +1,16 @@
 # =============================================================================
 # Stage 1: Document Ingestion Pipeline
 # =============================================================================
-# Loads PDFs and DOCX, chunks at 512 tokens with 64-token overlap
+# Loads PDFs and DOCX from KB/, splits into chunks, returns LangChain Documents.
+# Entry point: ingest_documents() → list of chunk Document objects.
 
 from pathlib import Path
 from typing import List
 import warnings
 
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader  # Read PDF/DOCX files
+from langchain_core.documents import Document  # LangChain's standard doc format: page_content + metadata
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # Smart chunking (preserves paragraphs/sentences)
 
 from .config import DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 
@@ -18,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 
 def get_document_files(directory: Path) -> List[Path]:
-    """Get all PDF and DOCX files from the documents directory."""
+    """Scan KB/ directory and return all PDF + DOCX file paths."""
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory}")
     
@@ -33,11 +34,12 @@ def get_document_files(directory: Path) -> List[Path]:
 
 
 def load_single_pdf(pdf_path: Path) -> List[Document]:
-    """Load a single PDF with robust error handling."""
+    """Load a single PDF with robust error handling (primary + fallback method)."""
     documents = []
     print(f"  Loading PDF: {pdf_path.name}")
     
     try:
+        # Primary method: LangChain's PyPDFLoader (handles most PDFs)
         loader = PyPDFLoader(str(pdf_path))
         pages = loader.load()
         
@@ -46,14 +48,14 @@ def load_single_pdf(pdf_path: Path) -> List[Document]:
             if text and len(text) > 20:  # Skip near-empty pages
                 doc.page_content = text
                 doc.metadata["source"] = pdf_path.name
-                doc.metadata["page"] = i + 1  # FR-05: page number
+                doc.metadata["page"] = i + 1  # FR-05: page number (1-indexed)
                 documents.append(doc)
         
         print(f"    ✅ Loaded {len(documents)} pages from {pdf_path.name}")
         
     except Exception as e:
         print(f"    ⚠️ Error loading {pdf_path.name}: {e}")
-        # Try alternative loading method
+        # Fallback method: pypdf directly (works on some malformed PDFs)
         try:
             from pypdf import PdfReader
             reader = PdfReader(str(pdf_path))
@@ -73,7 +75,7 @@ def load_single_pdf(pdf_path: Path) -> List[Document]:
 
 
 def load_single_docx(docx_path: Path) -> List[Document]:
-    """Load a single DOCX file."""
+    """Load a single DOCX file (paragraphs combined into page-like units)."""
     documents = []
     print(f"  Loading DOCX: {docx_path.name}")
     
@@ -98,7 +100,7 @@ def load_single_docx(docx_path: Path) -> List[Document]:
 
 
 def load_documents(document_files: List[Path]) -> List[Document]:
-    """Load all PDF and DOCX documents with page numbers."""
+    """Route each file to the correct loader based on extension."""
     documents = []
     
     for file_path in document_files:
@@ -107,23 +109,24 @@ def load_documents(document_files: List[Path]) -> List[Document]:
         elif file_path.suffix.lower() == ".docx":
             docs = load_single_docx(file_path)
         else:
-            continue
+            continue  # Skip unsupported file types
         documents.extend(docs)
     
     return documents
 
 
 def split_documents(documents: List[Document]) -> List[Document]:
-    """Split documents into chunks (512 tokens, 64 overlap)."""
+    """Split documents into chunks: 512 chars each, 64-char overlap between chunks."""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
-        length_function=len,
-        separators=["\n\n", "\n", ". ", " ", ""]
+        length_function=len,  # Count characters, not tokens
+        separators=["\n\n", "\n", ". ", " ", ""]  # Try paragraph breaks first, then sentences
     )
     
     chunks = text_splitter.split_documents(documents)
     
+    # Assign unique chunk IDs for tracking
     for i, chunk in enumerate(chunks):
         chunk.metadata["chunk_id"] = i
     
@@ -132,7 +135,7 @@ def split_documents(documents: List[Document]) -> List[Document]:
 
 
 def ingest_documents() -> List[Document]:
-    """Full ingestion pipeline: load PDFs/DOCX and split into chunks."""
+    """Full ingestion pipeline: find files → load → split → return chunks."""
     document_files = get_document_files(DOCS_DIR)
     print(f"Found {len(document_files)} PDF/DOCX files")
     

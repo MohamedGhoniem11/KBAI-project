@@ -1,4 +1,6 @@
 # Debug script to check what's in your vector store
+# Useful for: verifying rebuild success, checking score distribution, tuning threshold.
+# Run: python debug_vectorstore.py
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -23,7 +25,7 @@ try:
     
     # Get collection info
     print(f"\n✅ Vector store loaded successfully")
-    print(f"Total vectors: {vectorstore.index.ntotal}")
+    print(f"Total vectors: {vectorstore.index.ntotal}")  # Number of chunks in the index
     
     # Test a simple query
     test_query = "pasta"

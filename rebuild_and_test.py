@@ -1,4 +1,7 @@
 # Complete rebuild and test script
+# Usage: python rebuild_and_test.py              (LangChain mode)
+#        python rebuild_and_test.py --standalone  (standalone mode)
+# Deletes old vector store → re-ingests all KB/ PDFs → rebuilds FAISS index → tests retrieval
 import os
 import sys
 import shutil
@@ -19,7 +22,7 @@ title = "STANDALONE VECTOR STORE REBUILD + TEST" if USE_STANDALONE else "LANGCHA
 print(title)
 print("=" * 60)
 
-# Step 0: Verify KB/ exists
+# Step 0: Verify KB/ exists (if not, provide download link)
 if not KB_DIR.exists() or not any(KB_DIR.iterdir()):
     print("\n❌ KB/ directory is empty or missing.")
     print("   Download KB.zip from Google Drive:")
@@ -34,7 +37,7 @@ if USE_STANDALONE:
 else:
     vs_path = project_root / "data" / "vectorstore"
 
-# Step 1: Delete old vector store
+# Step 1: Delete old vector store (forces full rebuild)
 if vs_path.exists():
     shutil.rmtree(vs_path)
     print("\n✅ Deleted old vector store")
@@ -58,7 +61,7 @@ if USE_STANDALONE:
     vectorstore.save(vs_path)
     print(f"✅ Vector store saved with {len(chunks)} chunks")
 
-    # Step 3: Test retrieval
+    # Step 3: Test retrieval with sample queries
     print("\n[3/3] Testing retrieval (FR-03)...")
     from standalone.config import TOP_K, SIMILARITY_THRESHOLD
     from standalone.retrieval import RetrievalEngine
@@ -85,7 +88,7 @@ else:
     save_vectorstore(vectorstore)
     print(f"✅ Vector store saved with {len(chunks)} chunks")
 
-    # Step 3: Test retrieval
+    # Step 3: Test retrieval with sample queries
     print("\n[3/3] Testing retrieval (FR-03)...")
     test_queries = ["pasta", "chicken temperature", "knife skills"]
 

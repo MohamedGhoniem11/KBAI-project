@@ -11,6 +11,7 @@ ENV/
 # Vector stores (can be rebuilt)
 data/vectorstore/
 data/vectorstore_standalone/
+KBAI_PROJECT_GUIDE.md
 
 # Raw KB documents (too large for GitHub, use KB.zip instead)
 KB/

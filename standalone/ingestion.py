@@ -1,3 +1,4 @@
+# Standalone ingestion — no LangChain document loaders, uses pypdf and python-docx directly.
 from pathlib import Path
 from typing import List, Dict
 
@@ -14,7 +15,8 @@ def get_document_files(directory: Path) -> List[Path]:
 
 
 def load_pdf(path: Path) -> List[Dict]:
-    from pypdf import PdfReader
+    """Load PDF using pypdf directly (no PyPDFLoader wrapper)."""
+    from pypdf import PdfReader  # Direct PDF parsing library
     documents = []
     try:
         reader = PdfReader(str(path))
@@ -32,7 +34,8 @@ def load_pdf(path: Path) -> List[Dict]:
 
 
 def load_docx(path: Path) -> List[Dict]:
-    from docx import Document as DocxDocument
+    """Load DOCX using python-docx directly (no Docx2txtLoader wrapper)."""
+    from docx import Document as DocxDocument  # Direct DOCX parsing library
     documents = []
     try:
         doc = DocxDocument(str(path))
@@ -42,7 +45,7 @@ def load_docx(path: Path) -> List[Dict]:
             documents.append({
                 "content": text.strip(),
                 "source": path.name,
-                "page": 1
+                "page": 1  # DOCX doesn't have pages; treat entire doc as one "page"
             })
     except Exception as e:
         print(f"  Error loading {path.name}: {e}")
@@ -64,6 +67,7 @@ def load_documents(file_paths: List[Path]) -> List[Dict]:
 
 
 def split_text(text: str, chunk_size: int = 512, overlap: int = 64) -> List[str]:
+    """Simple sliding-window text splitter (no RecursiveCharacterTextSplitter dependency)."""
     chunks = []
     start = 0
     while start < len(text):
@@ -73,11 +77,12 @@ def split_text(text: str, chunk_size: int = 512, overlap: int = 64) -> List[str]
             chunks.append(chunk.strip())
         if end == len(text):
             break
-        start += chunk_size - overlap
+        start += chunk_size - overlap  # Slide window forward by (chunk_size - overlap)
     return chunks
 
 
 def chunk_documents(documents: List[Dict], chunk_size: int = 512, overlap: int = 64) -> List[Dict]:
+    """Split all documents into chunks using the simple sliding-window splitter."""
     chunks = []
     chunk_id = 0
     for doc in documents:
@@ -94,6 +99,7 @@ def chunk_documents(documents: List[Dict], chunk_size: int = 512, overlap: int =
 
 
 def ingest_documents() -> List[Dict]:
+    """Full standalone ingestion: find files → load → manual chunk → return list of dicts."""
     from .config import DOCS_DIR, CHUNK_SIZE, CHUNK_OVERLAP
     file_paths = get_document_files(DOCS_DIR)
     print(f"Found {len(file_paths)} PDF/DOCX files")

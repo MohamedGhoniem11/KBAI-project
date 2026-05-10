@@ -1,3 +1,5 @@
+# Standalone pipeline — orchestrates embeddings + vector store + retrieval + LLM.
+# No LangChain, no LangGraph. Linear pipeline (no agentic reflection loop).
 import os
 from pathlib import Path
 from .config import VECTORSTORE_DIR, EMBEDDING_MODEL
@@ -8,6 +10,11 @@ from .llm_integration import LLMGenerator
 
 
 class StandaloneRAGSystem:
+    """Pure-Python RAG system. Same functionality as CulinaryRAGSystem but:
+    - No LangChain dependencies
+    - Linear retrieve→generate (no LangGraph reflection loop)
+    - JSON metadata instead of pickle"""
+
     def __init__(self):
         self.embeddings = None
         self.vectorstore = None
@@ -41,6 +48,7 @@ class StandaloneRAGSystem:
         print("\n✅ Standalone system initialized successfully")
 
     def query(self, question: str) -> dict:
+        """Linear pipeline: retrieve → generate (no LangGraph reflection loop)."""
         if not self._initialized:
             self.initialize()
 
@@ -48,6 +56,7 @@ class StandaloneRAGSystem:
         print(f"Query: {question}")
         print("=" * 50)
 
+        # Single-pass retrieval (unlike LangGraph which can loop)
         chunks = self.retrieval_engine.retrieve(question)
         citations = [
             {"source": c["source"], "page": c["page"], "score": c["score"]}
@@ -65,6 +74,7 @@ class StandaloneRAGSystem:
         }
 
     def add_document(self, file_path: Path):
+        """Add a PDF/DOCX to the standalone vector store."""
         from .ingestion import load_documents, chunk_documents
         from .config import CHUNK_SIZE, CHUNK_OVERLAP
 

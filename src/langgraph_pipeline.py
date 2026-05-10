@@ -1,29 +1,32 @@
 # =============================================================================
 # LangGraph Agentic Pipeline (Stage 3)
 # =============================================================================
-# Stateful multi-node graph with reflection and re-retrieval
+# Stateful multi-node graph with reflection and re-retrieval.
+# Implements a blackboard architecture: nodes read/write shared AgentState.
+# Loops: retrieve → reflect (enough? if not, re-retrieve) → generate.
 
 from typing import TypedDict, List, Optional
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END  # LangGraph: stateful graph framework
 
 from .retrieval import RetrievalEngine, RetrievedChunk
 
 
 class AgentState(TypedDict):
-    """State for LangGraph pipeline."""
-    query: str
-    retrieved_chunks: List[RetrievedChunk]
-    context: str
-    citations: List[dict]
-    iteration: int
-    should_continue: bool
+    """Shared state (blackboard) for the LangGraph pipeline.
+    Each node reads from and writes to this dictionary."""
+    query: str                       # Original user question
+    retrieved_chunks: List[RetrievedChunk]  # Evidence gathered so far
+    context: str                     # Formatted context string (for LLM prompt)
+    citations: List[dict]            # Citation metadata [source, page, score]
+    iteration: int                   # Current loop iteration count
+    should_continue: bool            # Decision: re-retrieve or proceed to generation
 
 
-MAX_ITERATIONS = 3
+MAX_ITERATIONS = 3  # Maximum number of retrieve→reflect cycles
 
 
 def retrieve_node(state: AgentState) -> AgentState:
-    """Node 1: Retrieve relevant chunks."""
+    """Node 1: Retrieve relevant chunks via FAISS similarity search."""
     query = state["query"]
     iteration = state.get("iteration", 0)
     
@@ -35,7 +38,7 @@ def retrieve_node(state: AgentState) -> AgentState:
     else:
         chunks = []
     
-    state["retrieved_chunks"] = chunks
+    state["retrieved_chunks"] = chunks  # Store retrieved evidence on blackboard
     state["iteration"] = iteration + 1
     
     print(f"[Retrieve] Retrieved {len(chunks)} chunks")
@@ -44,23 +47,25 @@ def retrieve_node(state: AgentState) -> AgentState:
 
 
 def reflect_node(state: AgentState) -> AgentState:
-    """Node 2: Reflect on retrieval quality."""
+    """Node 2: Reflect on retrieval quality — decide if we need more evidence.
+    This is the backward-chaining step: "Do I have enough to answer the query?" """
     chunks = state.get("retrieved_chunks", [])
     iteration = state.get("iteration", 1)
     
-    # Check if we have enough relevant chunks
+    # Continue if: we have < 3 chunks AND haven't exceeded max iterations
     if len(chunks) >= 3:
-        state["should_continue"] = False
+        state["should_continue"] = False  # Enough evidence → proceed to generation
     elif iteration >= MAX_ITERATIONS:
-        state["should_continue"] = False
+        state["should_continue"] = False  # Max retries reached → stop looping
     else:
-        state["should_continue"] = True
+        state["should_continue"] = True   # Not enough → re-retrieve
     
     return state
 
 
 def generate_node(state: AgentState) -> AgentState:
-    """Node 3: Generate context for LLM."""
+    """Node 3: Package retrieved chunks into formatted context + citations for LLM.
+    Note: This does NOT call the LLM — it just prepares the context string."""
     chunks = state.get("retrieved_chunks", [])
     
     if not chunks:
@@ -89,23 +94,26 @@ def generate_node(state: AgentState) -> AgentState:
 
 
 def should_continue_edges(state: AgentState) -> str:
-    """Decide whether to continue the loop."""
+    """Conditional edge: decide which node to route to next."""
     if state.get("should_continue", False):
-        return "continue"
-    return "end"
+        return "continue"  # Go back to retrieve_node
+    return "end"           # Proceed to generate_node
 
 
 def create_agentic_pipeline(retrieval_engine: RetrievalEngine):
-    """Create LangGraph agentic pipeline."""
+    """Build and compile the LangGraph state graph.
+    Graph structure:
+      retrieve → reflect → (continue → retrieve | end → generate) → END
+    """
     
     def run_retrieval_node(state: AgentState) -> AgentState:
         state["retrieval_engine"] = retrieval_engine
         return retrieve_node(state)
     
-    # Define the graph
+    # Define the graph with typed state
     graph = StateGraph(AgentState)
     
-    # Add nodes
+    # Add nodes (each is a function that transforms state)
     graph.add_node("retrieve", run_retrieval_node)
     graph.add_node("reflect", reflect_node)
     graph.add_node("generate", generate_node)
@@ -114,24 +122,25 @@ def create_agentic_pipeline(retrieval_engine: RetrievalEngine):
     graph.set_entry_point("retrieve")
     
     # Add edges
-    graph.add_edge("retrieve", "reflect")
-    graph.add_conditional_edges(
+    graph.add_edge("retrieve", "reflect")              # Always go retrieve → reflect
+    graph.add_conditional_edges(                         # Conditional: re-retrieve or generate?
         "reflect",
         should_continue_edges,
         {
-            "continue": "retrieve",
-            "end": "generate"
+            "continue": "retrieve",  # Loop back
+            "end": "generate"        # Proceed to finish
         }
     )
-    graph.add_edge("generate", END)
+    graph.add_edge("generate", END)  # Terminal
     
     return graph.compile()
 
 
 def run_agentic_pipeline(query: str, retrieval_engine: RetrievalEngine) -> dict:
-    """Run the full agentic pipeline."""
+    """Run the full agentic pipeline and return results."""
     pipeline = create_agentic_pipeline(retrieval_engine)
     
+    # Initial state — all fields empty except query
     initial_state = {
         "query": query,
         "retrieved_chunks": [],

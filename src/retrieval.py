@@ -1,35 +1,36 @@
 # =============================================================================
 # Retrieval Engine (FR-03, FR-05)
 # =============================================================================
-# Retrieves top-k=5 chunks with cosine similarity >= 0.65, includes page number
+# Takes a user query → embeds it → FAISS similarity search → filter by threshold.
+# Returns RetrievedChunk objects with source, page number, and relevance score.
 
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel  # Data validation: auto type-checking + .model_dump()
 
 from langchain_community.vectorstores import FAISS
 from .config import TOP_K, SIMILARITY_THRESHOLD
 
 
 class RetrievedChunk(BaseModel):
-    """Retrieved chunk with source and page number (FR-05)."""
-    content: str
-    source: str
-    page: int = 0
-    chunk_id: int = 0
-    score: float = 0.0
+    """Structured output for one retrieved chunk (FR-05: includes source + page)."""
+    content: str      # The actual chunk text
+    source: str       # PDF filename (e.g., "The_Science_of_Good_Cooking.pdf")
+    page: int = 0     # Page number (1-indexed)
+    chunk_id: int = 0 # Unique chunk identifier
+    score: float = 0.0  # Cosine similarity score (0-1, higher = more relevant)
 
 
 class RetrievalEngine:
-    """Semantic retrieval engine (FR-03)."""
+    """Semantic retrieval engine (FR-03). Wraps FAISS with top-k + threshold logic."""
     
     def __init__(self, vectorstore: FAISS, top_k: int = TOP_K, threshold: float = SIMILARITY_THRESHOLD):
         self.vectorstore = vectorstore
-        self.top_k = top_k
-        self.threshold = threshold
+        self.top_k = top_k          # How many candidates to pull from FAISS
+        self.threshold = threshold  # Minimum similarity score to keep a chunk
     
     def retrieve(self, query: str) -> List[RetrievedChunk]:
-        """Retrieve top-k chunks with similarity >= threshold (FR-03)."""
-        # Use raw similarity score (cosine similarity for IP distance on normalized emb)
+        """Embed query → FAISS search → filter by score ≥ threshold."""
+        # similarity_search_with_score returns (Document, float) pairs
         docs_with_scores = self.vectorstore.similarity_search_with_score(
             query=query,
             k=self.top_k
@@ -39,6 +40,7 @@ class RetrievalEngine:
         for i, (doc, score) in enumerate(docs_with_scores):
             print(f"  [{i+1}] Score: {score:.4f} | Source: {doc.metadata.get('source', '?')} | Page: {doc.metadata.get('page', '?')}")
         
+        # Filter: only keep chunks above similarity threshold
         retrieved = []
         for doc, score in docs_with_scores:
             print(f"[Retrieval] Chunk score: {score:.4f} (threshold: {self.threshold})")
@@ -55,12 +57,12 @@ class RetrievalEngine:
         return retrieved
     
     def as_retriever(self):
-        """Return as LangChain retriever."""
+        """Return as LangChain retriever object (for compatibility with LCEL chains)."""
         return self.vectorstore.as_retriever(
             search_kwargs={"k": self.top_k}
         )
 
 
 def create_retrieval_engine(vectorstore: FAISS) -> RetrievalEngine:
-    """Factory function."""
+    """Factory function — create a RetrievalEngine with default config values."""
     return RetrievalEngine(vectorstore)

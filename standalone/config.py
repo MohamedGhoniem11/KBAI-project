@@ -1,9 +1,11 @@
+# Standalone config (same values as src/config.py, duplicated for independence)
+# This version has zero dependencies on LangChain — pure Python only.
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DOCS_DIR = PROJECT_ROOT / "KB"
-VECTORSTORE_DIR = PROJECT_ROOT / "data" / "vectorstore_standalone"
+VECTORSTORE_DIR = PROJECT_ROOT / "data" / "vectorstore_standalone"  # Separate from LangChain's index
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64

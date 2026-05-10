@@ -1,19 +1,23 @@
+# Standalone LLM integration — uses raw HTTP requests to xAI API (no ChatXAI SDK).
 import os
-import requests
+import requests  # Raw HTTP library instead of LangChain's ChatXAI
 from typing import List, Dict
 from .config import DOMAIN_DISCLAIMER
 
-XAI_API_URL = "https://api.x.ai/v1/chat/completions"
+XAI_API_URL = "https://api.x.ai/v1/chat/completions"  # xAI REST API endpoint
 
 
 class LLMGenerator:
+    """Calls Grok API via raw HTTP POST. No LangChain dependency."""
+
     def __init__(self, model: str = "grok-3-latest"):
         self.model = model
-        self.api_key = os.getenv("XAI_API_KEY")
+        self.api_key = os.getenv("XAI_API_KEY")  # Read directly from environment
         if not self.api_key or self.api_key == "your_xai_grok_api_key_here":
             raise ValueError("XAI_API_KEY not set in .env file")
 
     def generate(self, query: str, chunks: List[Dict], citations: List[Dict]) -> Dict:
+        """Build prompt from chunks → POST to xAI API → format response + citations + disclaimer."""
         context_parts = []
         for i, chunk in enumerate(chunks):
             context_parts.append(
@@ -21,6 +25,7 @@ class LLMGenerator:
             )
         context = "\n\n".join(context_parts) if context_parts else "No relevant context found."
 
+        # Manual string formatting instead of ChatPromptTemplate
         system_prompt = (
             "You are a culinary expert assistant. Your response must be based ONLY on the provided retrieved context.\n\n"
             "RETRIEVED CONTEXT:\n"
@@ -34,6 +39,7 @@ class LLMGenerator:
         )
 
         try:
+            # Raw HTTP request to xAI API (instead of ChatXAI.invoke())
             response = requests.post(
                 XAI_API_URL,
                 headers={
@@ -46,7 +52,7 @@ class LLMGenerator:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"USER QUESTION: {query}"},
                     ],
-                    "temperature": 0.1,
+                    "temperature": 0.1,  # Low temperature for grounded answers
                 },
                 timeout=60,
             )
