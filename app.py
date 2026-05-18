@@ -17,23 +17,33 @@ PROJECT_ROOT = Path(__file__).parent
 
 
 def ensure_kb():
-    """Download + unzip KB if not present (for HF deployment)."""
-    KB_DIR = PROJECT_ROOT / "KB"
-    KB_ZIP = PROJECT_ROOT / "KB.zip"
-    DRIVE_URL = "https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4"
-    if KB_DIR.exists() and any(KB_DIR.iterdir()):
+    """Download vector store (pre-built, 39MB) from HF repo on first run."""
+    VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
+    VS_TAR = PROJECT_ROOT / "data" / "vectorstore.tar.gz"
+    if VS_DIR.exists():
         return
-    if not KB_ZIP.exists():
-        st.info("Downloading knowledge base (272MB, first run only)...")
-        import urllib.request
-        import zipfile
-        def dl(count, block, total):
-            if total > 0 and count % 20 == 0:
-                st.progress(min(int(count * block * 100 / total), 100))
-        urllib.request.urlretrieve(DRIVE_URL, KB_ZIP, dl)
-    st.info("Extracting knowledge base...")
-    with zipfile.ZipFile(KB_ZIP, "r") as z:
-        z.extractall(PROJECT_ROOT)
+    st.info("Downloading pre-built vector store (39MB, first run only)...")
+    import requests as req
+    VS_TAR.parent.mkdir(parents=True, exist_ok=True)
+    url = "https://huggingface.co/spaces/12412mohamed/culinary-rag-assistant/resolve/main/data/vectorstore.tar.gz"
+    with req.get(url, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("content-length", 0))
+        downloaded = 0
+        with open(VS_TAR, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total > 0:
+                    pct = int(downloaded * 100 / total)
+                    if pct % 20 == 0:
+                        st.progress(min(pct, 100))
+    st.info("Extracting vector store...")
+    import tarfile
+    with tarfile.open(VS_TAR, "r:gz") as t:
+        t.extractall(path=PROJECT_ROOT / "data")
+    VS_TAR.unlink(missing_ok=True)
+    st.success("Vector store ready!")
 
 
 def ensure_vectorstore():
@@ -111,10 +121,9 @@ def main():
     
     init_session()
     
-    # Ensure KB and vector store exist (first run setup for HF Spaces)
+    # Ensure vector store exists (download pre-built from HF on first run)
     with st.spinner("Checking knowledge base..."):
         ensure_kb()
-        ensure_vectorstore()
     
     # Lazy-initialize the RAG system (once, then reuse across reruns)
     if st.session_state.rag_system is None:
