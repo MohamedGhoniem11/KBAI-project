@@ -18,8 +18,15 @@ app_port: 8501
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 [![Groq](https://img.shields.io/badge/LLM-Groq%20%7C%20xAI%20%7C%20Ollama-orange)](#provider-architecture)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)](https://www.docker.com/)
+[![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Space-yellow)](https://12412mohamed-culinary-rag-assistant.hf.space)
 
 > **AI-powered culinary knowledge base with multi-provider LLM support, citation-anchored generation, and dual retrieval pipelines (LangChain + Standalone).**
+
+<div align="center">
+  <a href="https://12412mohamed-culinary-rag-assistant.hf.space">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-HuggingFace_Spaces-FF6F00?style=for-the-badge" alt="Live Demo">
+  </a>
+</div>
 
 ---
 
