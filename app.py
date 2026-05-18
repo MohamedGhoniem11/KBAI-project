@@ -9,8 +9,45 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TF warnings in Streamlit logs
 
 import streamlit as st  # Web app framework — turns Python scripts into interactive UIs
+from pathlib import Path
 
 from src.config import DOMAIN_DISCLAIMER
+
+PROJECT_ROOT = Path(__file__).parent
+
+
+def ensure_kb():
+    """Download + unzip KB if not present (for HF deployment)."""
+    KB_DIR = PROJECT_ROOT / "KB"
+    KB_ZIP = PROJECT_ROOT / "KB.zip"
+    DRIVE_URL = "https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4"
+    if KB_DIR.exists() and any(KB_DIR.iterdir()):
+        return
+    if not KB_ZIP.exists():
+        st.info("Downloading knowledge base (272MB, first run only)...")
+        import urllib.request
+        import zipfile
+        def dl(count, block, total):
+            if total > 0 and count % 20 == 0:
+                st.progress(min(int(count * block * 100 / total), 100))
+        urllib.request.urlretrieve(DRIVE_URL, KB_ZIP, dl)
+    st.info("Extracting knowledge base...")
+    with zipfile.ZipFile(KB_ZIP, "r") as z:
+        z.extractall(PROJECT_ROOT)
+
+
+def ensure_vectorstore():
+    """Rebuild vector store if not present."""
+    from src.ingestion import ingest_documents
+    from src.vectorstore import create_vectorstore, save_vectorstore
+    VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
+    if not VS_DIR.exists():
+        st.info("Building vector store (takes ~10 min on first run)...")
+        chunks = ingest_documents()
+        st.info(f"Indexed {len(chunks)} chunks...")
+        sv = create_vectorstore(chunks)
+        save_vectorstore(sv)
+        st.success("Vector store ready!")
 
 # set_page_config MUST be the first Streamlit command (Streamlit requirement)
 st.set_page_config(
@@ -73,6 +110,11 @@ def main():
     st.markdown("---")
     
     init_session()
+    
+    # Ensure KB and vector store exist (first run setup for HF Spaces)
+    with st.spinner("Checking knowledge base..."):
+        ensure_kb()
+        ensure_vectorstore()
     
     # Lazy-initialize the RAG system (once, then reuse across reruns)
     if st.session_state.rag_system is None:
