@@ -1,9 +1,3 @@
-# =============================================================================
-# HF Deployment - Auto-download KB + Vector Store
-# =============================================================================
-# This version downloads KB from Google Drive on first run
-# Use this for HuggingFace Spaces deployment
-
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -15,7 +9,7 @@ PROJECT_ROOT = Path(__file__).parent
 st.set_page_config(
     page_title="Culinary RAG Assistant",
     page_icon="🍳",
-    layout="wide"
+    layout="wide",
 )
 
 st.markdown("""
@@ -34,7 +28,6 @@ st.markdown("""
 
 
 def ensure_kb():
-    """Download + unzip KB if not present (for HF deployment)."""
     KB_DIR = PROJECT_ROOT / "KB"
     KB_ZIP = PROJECT_ROOT / "KB.zip"
     DRIVE_URL = "https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4"
@@ -43,37 +36,33 @@ def ensure_kb():
         return
 
     if not KB_ZIP.exists():
-        st.info("📥 Downloading knowledge base (272MB, first run only)...")
+        st.info("Downloading knowledge base (272MB, first run only)...")
         import urllib.request
         import zipfile
-        import io
 
-        def download_progress(count, block_size, total_size):
-            if total_size > 0:
-                pct = int(count * block_size * 100 / total_size)
-                if pct % 20 == 0:
-                    st.progress(pct / 100, text=f"Downloading... {pct}%")
+        def dl(count, block, total):
+            if total > 0 and count % 20 == 0:
+                st.progress(min(int(count * block * 100 / total), 100))
 
-        urllib.request.urlretrieve(DRIVE_URL, KB_ZIP, download_progress)
+        urllib.request.urlretrieve(DRIVE_URL, KB_ZIP, dl)
 
-    st.info("📦 Extracting knowledge base...")
-    with zipfile.ZipFile(KB_ZIP, 'r') as zip_ref:
-        zip_ref.extractall(PROJECT_ROOT)
+    st.info("Extracting knowledge base...")
+    with zipfile.ZipFile(KB_ZIP, "r") as z:
+        z.extractall(PROJECT_ROOT)
 
 
 def ensure_vectorstore():
-    """Rebuild vector store if not present."""
     from src.ingestion import ingest_documents
     from src.vectorstore import create_vectorstore, save_vectorstore
 
     VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
     if not VS_DIR.exists():
-        st.info("🔨 Building vector store (this takes ~10 minutes on first run)...")
+        st.info("Building vector store (takes ~10 min on first run)...")
         chunks = ingest_documents()
-        st.info(f"   Indexed {len(chunks)} document chunks...")
-        vectorstore = create_vectorstore(chunks)
-        save_vectorstore(vectorstore)
-        st.success("✅ Vector store ready!")
+        st.info(f"Indexed {len(chunks)} chunks...")
+        create_and_save = create_vectorstore(chunks)
+        save_vectorstore(create_and_save)
+        st.success("Vector store ready!")
 
 
 def init_session():
@@ -98,16 +87,16 @@ def process_query(prompt: str):
     with st.spinner("Searching culinary knowledge base..."):
         try:
             result = system.query(prompt)
-            response = result["answer"]
-            st.session_state.history.append((prompt, response))
+            st.session_state.history.append((prompt, result["answer"]))
         except Exception as e:
-            st.session_state.history.append((prompt, f"Error: {str(e)}"))
+            st.session_state.history.append((prompt, f"Error: {e}"))
 
 
 def main():
     from src.config import DOMAIN_DISCLAIMER
+    from src.provider import get_provider
 
-    st.title("🍳 Culinary Arts RAG Assistant")
+    st.title("Culinary Arts RAG Assistant")
     st.markdown("### AI-Powered Culinary Knowledge Base with Citations")
     st.markdown("---")
 
@@ -118,7 +107,7 @@ def main():
     init_session()
 
     if st.session_state.rag_system is None:
-        with st.spinner("Loading culinary knowledge base..."):
+        with st.spinner("Loading..."):
             st.session_state.rag_system = get_system_for_mode(st.session_state.mode)
             st.session_state.rag_system.initialize()
 
@@ -127,7 +116,7 @@ def main():
             "Select RAG Engine",
             ["LangChain + LangGraph", "Standalone (no LangChain)"],
             index=0,
-            key="mode_selector"
+            key="mode_selector",
         )
         if mode != st.session_state.mode:
             st.session_state.mode = mode
@@ -135,20 +124,21 @@ def main():
             st.rerun()
 
         st.markdown("---")
-        st.header("ℹ️ System Info")
-        st.markdown("""
+        st.header("System Info")
+        active_provider = get_provider().value.upper()
+        st.markdown(f"""
         **Culinary RAG System**
+        - LLM: {active_provider}
         - KB: 9 PDF cookbooks (295MB)
         - Embeddings: all-MiniLM-L6-v2
-        - Retrieval: Top-5 chunks, 0.65 cosine threshold
-        - LLM: Grok (xAI)
+        - Retrieval: Top-5, 0.65 threshold
         """)
 
-        st.header("⚠️ Disclaimer")
+        st.header("Disclaimer")
         st.caption(DOMAIN_DISCLAIMER)
 
         st.markdown("---")
-        st.header("📋 Sample Questions")
+        st.header("Sample Questions")
         questions = [
             "How do I make fresh pasta?",
             "Safe chicken temperature?",
@@ -159,7 +149,7 @@ def main():
                 process_query(q)
                 st.rerun()
 
-    st.header("💬 Chat")
+    st.header("Chat")
     for q, r in st.session_state.history:
         with st.chat_message("user"):
             st.markdown(q)

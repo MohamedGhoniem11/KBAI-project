@@ -97,13 +97,15 @@ def main():
         
         st.markdown("---")
         st.header("ℹ️ System Info")
+        from src.provider import get_provider
+        active_provider = get_provider().value.upper()
         pipeline_text = "LangGraph Agentic (retrieve → reflect → generate)" if st.session_state.mode == "LangChain + LangGraph" else "Linear (retrieve → generate)"
         st.markdown(f"""
         **Culinary RAG System**
+        - LLM: {active_provider}
         - KB: PDF/DOCX documents (add to KB/ folder)
         - Embeddings: all-MiniLM-L6-v2 (normalized)
         - Retrieval: Top-5 chunks, 0.65 cosine threshold
-        - LLM: Grok (xAI) only
         - Pipeline: {pipeline_text}
         """)
         

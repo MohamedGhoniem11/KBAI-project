@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./KB.zip:/app/KB.zip
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=500
+    restart: unless-stopped

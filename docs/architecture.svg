@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <style>
+    text { font-family: system-ui, -apple-system, sans-serif; }
+    .title { font-size: 20px; font-weight: bold; fill: #2c3e50; }
+    .label { font-size: 12px; fill: #555; }
+    .small-label { font-size: 10px; fill: #666; }
+    rect.box { fill: #f8f9fa; stroke: #3498db; stroke-width: 2; rx: 8; }
+    rect.box-fill { fill: #e3f2fd; stroke: #1976d2; stroke-width: 1.5; rx: 6; }
+    line.arrow { stroke: #7f8c8d; stroke-width: 2; }
+    line.arrow-active { stroke: #2ecc71; stroke-width: 2; }
+    .arrow-head { fill: #7f8c8d; }
+    .tag { fill: #e8f5e9; stroke: #388e3c; stroke-width: 1; rx: 4; }
+    .phi { font-size: 10px; fill: #1565c0; font-style: italic; }
+  </style>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="title">Culinary Arts RAG System — Architecture</text>
+  <text x="400" y="48" text-anchor="middle" class="label">LangChain + LangGraph | Multi-Provider LLM | Streamlit + CLI</text>
+
+  <!-- User Input -->
+  <rect x="300" y="68" width="200" height="40" class="box-fill" />
+  <text x="400" y="93" text-anchor="middle" class="label" font-weight="bold">User Question</text>
+  <text x="520" y="85" class="small-label">CLI / Streamlit</text>
+
+  <!-- Arrow down -->
+  <line x1="400" y1="108" x2="400" y2="140" class="arrow" />
+  <polygon points="395,138 400,148 405,138" class="arrow-head" />
+
+  <!-- Orchestrator -->
+  <rect x="250" y="148" width="300" height="44" class="box" fill="#fff3e0" stroke="#e65100" />
+  <text x="400" y="165" text-anchor="middle" class="label" font-weight="bold">RAG Orchestrator</text>
+  <text x="400" y="180" text-anchor="middle" class="phi">CulinaryRAGSystem (main.py)</text>
+
+  <!-- Branch: LangGraph mode -->
+  <line x1="400" y1="192" x2="400" y2="220" class="arrow" />
+  <polygon points="395,218 400,228 405,218" class="arrow-head" />
+
+  <rect x="50" y="228" width="320" height="100" class="box" />
+  <text x="210" y="248" text-anchor="middle" class="label" font-weight="bold">LangChain + LangGraph Pipeline</text>
+  <text x="210" y="268" text-anchor="middle" class="small-label">Retrieve → Reflect → Re-retrieve → Generate</text>
+  <text x="210" y="285" text-anchor="middle" class="small-label">Agentic loop for retrieval quality</text>
+  <text x="210" y="302" text-anchor="middle" class="small-label">langgraph_pipeline.py</text>
+  <text x="210" y="318" text-anchor="middle" class="phi">langchain-xai / langchain-groq</text>
+
+  <rect x="430" y="228" width="320" height="100" class="box" />
+  <text x="590" y="248" text-anchor="middle" class="label" font-weight="bold">Standalone Pipeline</text>
+  <text x="590" y="268" text-anchor="middle" class="small-label">Retrieve → Generate (linear)</text>
+  <text x="590" y="285" text-anchor="middle" class="small-label">No LangChain, no LangGraph</text>
+  <text x="590" y="302" text-anchor="middle" class="small-label">standalone/pipeline.py</text>
+  <text x="590" y="318" text-anchor="middle" class="phi">raw HTTP (requests)</text>
+
+  <!-- Arrow to Retrieval -->
+  <line x1="210" y1="328" x2="210" y2="360" class="arrow" />
+  <polygon points="205,358 210,368 215,358" class="arrow-head" />
+  <line x1="590" y1="328" x2="590" y2="360" class="arrow" />
+  <polygon points="585,358 590,368 595,358" class="arrow-head" />
+
+  <!-- Retrieval Engine -->
+  <rect x="50" y="368" width="700" height="80" class="box" fill="#e8f5e9" stroke="#2e7d32" />
+  <text x="400" y="392" text-anchor="middle" class="label" font-weight="bold">Retrieval Engine (src/retrieval.py)</text>
+  <text x="400" y="410" text-anchor="middle" class="small-label">Top-5 chunks | Cosine threshold ≥0.65 | all-MiniLM-L6-v2</text>
+  <text x="400" y="428" text-anchor="middle" class="small-label">FAISS vector store → Similarity search → RetrievedChunk[]</text>
+
+  <!-- Arrow to LLM -->
+  <line x1="400" y1="448" x2="400" y2="480" class="arrow" />
+  <polygon points="395,478 400,488 405,478" class="arrow-head" />
+
+  <!-- LLM Integration -->
+  <rect x="100" y="488" width="600" height="60" class="box" fill="#fce4ec" stroke="#c62828" />
+  <text x="400" y="510" text-anchor="middle" class="label" font-weight="bold">LLM Provider (src/llm_integration.py)</text>
+  <text x="400" y="530" text-anchor="middle" class="small-label">Groq (default) | xAI | Ollama | OpenAI — configured via .env</text>
+
+  <!-- Arrow to Output -->
+  <line x1="400" y1="548" x2="400" y2="580" class="arrow-active" />
+  <polygon points="395,578 400,588 405,578" fill="#2ecc71" />
+
+  <!-- Output -->
+  <rect x="250" y="588" width="300" height="50" rx="10" fill="#c8e6c9" stroke="#2e7d32" stroke-width="2" />
+  <text x="400" y="612" text-anchor="middle" class="label" font-weight="bold">Grounded Answer + Citations</text>
+  <text x="400" y="628" text-anchor="middle" class="small-label">+ Domain disclaimer (FR-07)</text>
+
+  <!-- Context box -->
+  <rect x="50" y="488" width="40" height="60" class="tag" />
+  <text x="70" y="510" text-anchor="middle" class="small-label" fill="#2e7d32">ctx</text>
+
+  <!-- Source docs tag -->
+  <rect x="50" y="368" width="40" height="30" class="tag" />
+  <text x="70" y="387" text-anchor="middle" class="small-label" fill="#2e7d32">KB</text>
+
+  <!-- Tech stack footer -->
+  <line x1="20" y1="660" x2="780" y2="660" stroke="#ddd" stroke-width="1" />
+  <text x="400" y="678" text-anchor="middle" class="small-label">Tech: Python · LangChain · LangGraph · FAISS · sentence-transformers · Groq/xAI/Ollama · Streamlit · Docker</text>
+  <text x="400" y="693" text-anchor="middle" class="small-label">Docs: project-based — 295MB culinary corpus · 9 PDF cookbooks</text>
+</svg>

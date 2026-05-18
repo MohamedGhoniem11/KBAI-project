@@ -8,6 +8,11 @@ env/
 venv/
 ENV/
 
+# Environment secrets
+.env
+.env.local
+.streamlit/secrets.toml
+
 # Vector stores (can be rebuilt)
 data/vectorstore/
 data/vectorstore_standalone/
@@ -16,6 +21,9 @@ KBAI_PROJECT_GUIDE.md
 # Raw KB documents (too large for GitHub, use KB.zip instead)
 KB/
 KB.zip
+
+# Runtime
+logs/
 
 # IDE
 .vscode/

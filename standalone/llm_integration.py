@@ -1,23 +1,34 @@
-# Standalone LLM integration — uses raw HTTP requests to xAI API (no ChatXAI SDK).
 import os
-import requests  # Raw HTTP library instead of LangChain's ChatXAI
 from typing import List, Dict
-from .config import DOMAIN_DISCLAIMER
+import requests
 
-XAI_API_URL = "https://api.x.ai/v1/chat/completions"  # xAI REST API endpoint
+from .config import DOMAIN_DISCLAIMER
+from src.provider import (
+    Provider,
+    get_provider,
+    get_provider_config,
+    get_api_key,
+    get_default_model,
+)
+
+OPENAI_COMPATIBLE_URLS = {
+    Provider.GROQ: "https://api.groq.com/openai/v1/chat/completions",
+    Provider.XAI: "https://api.x.ai/v1/chat/completions",
+    Provider.OLLAMA: "http://localhost:11434/v1/chat/completions",
+    Provider.OPENAI: "https://api.openai.com/v1/chat/completions",
+}
 
 
 class LLMGenerator:
-    """Calls Grok API via raw HTTP POST. No LangChain dependency."""
+    """Calls LLM API via raw HTTP. No LangChain dependency."""
 
-    def __init__(self, model: str = "grok-3-latest"):
-        self.model = model
-        self.api_key = os.getenv("XAI_API_KEY")  # Read directly from environment
-        if not self.api_key or self.api_key == "your_xai_grok_api_key_here":
-            raise ValueError("XAI_API_KEY not set in .env file")
+    def __init__(self, model: str = None):
+        self.provider = get_provider()
+        self.model = model or get_default_model()
+        self.api_key = get_api_key()
+        self.api_url = OPENAI_COMPATIBLE_URLS.get(self.provider)
 
     def generate(self, query: str, chunks: List[Dict], citations: List[Dict]) -> Dict:
-        """Build prompt from chunks → POST to xAI API → format response + citations + disclaimer."""
         context_parts = []
         for i, chunk in enumerate(chunks):
             context_parts.append(
@@ -25,7 +36,6 @@ class LLMGenerator:
             )
         context = "\n\n".join(context_parts) if context_parts else "No relevant context found."
 
-        # Manual string formatting instead of ChatPromptTemplate
         system_prompt = (
             "You are a culinary expert assistant. Your response must be based ONLY on the provided retrieved context.\n\n"
             "RETRIEVED CONTEXT:\n"
@@ -39,20 +49,22 @@ class LLMGenerator:
         )
 
         try:
-            # Raw HTTP request to xAI API (instead of ChatXAI.invoke())
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
             response = requests.post(
-                XAI_API_URL,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
+                self.api_url,
+                headers=headers,
                 json={
                     "model": self.model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"USER QUESTION: {query}"},
                     ],
-                    "temperature": 0.1,  # Low temperature for grounded answers
+                    "temperature": 0.1,
                 },
                 timeout=60,
             )
@@ -70,7 +82,7 @@ class LLMGenerator:
             }
 
         except Exception as e:
-            print(f"Grok API error: {e}")
+            print(f"LLM API error ({self.provider}): {e}")
             return self._generate_fallback(query, chunks, citations)
 
     def _format_citations(self, citations: List[Dict]) -> str:

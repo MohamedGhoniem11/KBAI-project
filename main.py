@@ -12,7 +12,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TensorFlow warnings
 import sys
 from pathlib import Path
 
-# Load .env file if available (contains XAI_API_KEY)
+# Load .env file if available (contains API keys)
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -26,7 +26,7 @@ from src.llm_integration import create_llm_generator
 
 
 class CulinaryRAGSystem:
-    """Main orchestrator: loads vector store → creates retriëval engine → initializes Grok LLM.
+    """Main orchestrator: loads vector store → creates retriëval engine → initializes LLM.
     Exposes query() for single-turn Q&A and add_document() for KB updates."""
     
     def __init__(self):
@@ -40,12 +40,7 @@ class CulinaryRAGSystem:
         if self._initialized:
             return
         
-        # Check for Grok API key before attempting anything
-        if "XAI_API_KEY" not in os.environ or not os.environ["XAI_API_KEY"] or os.environ["XAI_API_KEY"] == "your_xai_grok_api_key_here":
-            print("Error: XAI_API_KEY not set in .env file. Grok API required.")
-            sys.exit(1)
-        
-        print("Initializing Culinary RAG System (Grok-only)...")
+        print("Initializing Culinary RAG System...")
         
         # Stage 1: Load pre-built FAISS vector store (built by rebuild_and_test.py)
         print("\n[Stage 1] Loading vector store...")
@@ -55,10 +50,9 @@ class CulinaryRAGSystem:
         print("[Stage 2] Setting up retrieval engine...")
         self.retrieval_engine = create_retrieval_engine(self.vectorstore)
         
-        # Stage 3: Initialize Grok LLM (reads XAI_API_KEY from .env)
-        print("[Stage 3] Initializing Grok LLM...")
-        model = os.getenv("LLM_MODEL", "grok-3-latest")
-        self.llm = create_llm_generator(model)
+        # Stage 3: Initialize LLM (reads provider config from .env)
+        print("[Stage 3] Initializing LLM...")
+        self.llm = create_llm_generator()
         
         self._initialized = True
         print("\n✅ System initialized successfully")
