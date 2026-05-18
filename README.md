@@ -1,3 +1,14 @@
+---
+title: Culinary Arts RAG Assistant
+emoji: 🍳
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+license: apache-2.0
+app_port: 8501
+---
+
 # Culinary Arts RAG Assistant 🍳
 
 [![CI](https://github.com/MohamedGhoniem11/KBAI-project/actions/workflows/ci.yml/badge.svg)](https://github.com/MohamedGhoniem11/KBAI-project/actions)
