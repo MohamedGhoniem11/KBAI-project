@@ -22,7 +22,7 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
     Provider.GROQ: ProviderConfig(
         api_key_env="GROQ_API_KEY",
         api_url="https://api.groq.com/openai/v1/chat/completions",
-        default_model="llama3-70b-8192",
+        default_model="llama-3.3-70b-versatile",
     ),
     Provider.XAI: ProviderConfig(
         api_key_env="XAI_API_KEY",
