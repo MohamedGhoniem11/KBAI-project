@@ -1,15 +1,13 @@
-import os
-from typing import List, Dict
 import requests
 
-from .config import DOMAIN_DISCLAIMER
 from src.provider import (
     Provider,
-    get_provider,
-    get_provider_config,
     get_api_key,
     get_default_model,
+    get_provider,
 )
+
+from .config import DOMAIN_DISCLAIMER
 
 OPENAI_COMPATIBLE_URLS = {
     Provider.GROQ: "https://api.groq.com/openai/v1/chat/completions",
@@ -28,7 +26,7 @@ class LLMGenerator:
         self.api_key = get_api_key()
         self.api_url = OPENAI_COMPATIBLE_URLS.get(self.provider)
 
-    def generate(self, query: str, chunks: List[Dict], citations: List[Dict]) -> Dict:
+    def generate(self, query: str, chunks: list[dict], citations: list[dict]) -> dict:
         context_parts = []
         for i, chunk in enumerate(chunks):
             context_parts.append(
@@ -37,7 +35,8 @@ class LLMGenerator:
         context = "\n\n".join(context_parts) if context_parts else "No relevant context found."
 
         system_prompt = (
-            "You are a culinary expert assistant. Your response must be based ONLY on the provided retrieved context.\n\n"
+            "You are a culinary expert assistant. Your response must be based ONLY on "
+            "the provided retrieved context.\n\n"
             "RETRIEVED CONTEXT:\n"
             f"{context}\n\n"
             "INSTRUCTIONS:\n"
@@ -85,7 +84,7 @@ class LLMGenerator:
             print(f"LLM API error ({self.provider}): {e}")
             return self._generate_fallback(query, chunks, citations)
 
-    def _format_citations(self, citations: List[Dict]) -> str:
+    def _format_citations(self, citations: list[dict]) -> str:
         if not citations:
             return "No sources found"
         lines = []
@@ -96,10 +95,14 @@ class LLMGenerator:
             lines.append(f"[{i+1}] {source}, Page {page} (Relevance: {score})")
         return "\n".join(lines)
 
-    def _generate_fallback(self, query: str, chunks: List[Dict], citations: List[Dict]) -> Dict:
+    def _generate_fallback(self, query: str, chunks: list[dict], citations: list[dict]) -> dict:
         if not chunks:
+            no_info_msg = (
+                "I don't have relevant information in my knowledge base. "
+                "Try asking about recipes, cooking techniques, or food safety."
+            )
             return {
-                "answer": "I don't have relevant information in my knowledge base. Try asking about recipes, cooking techniques, or food safety.",
+                "answer": no_info_msg,
                 "retrieved_chunks": [],
                 "citations": [],
             }

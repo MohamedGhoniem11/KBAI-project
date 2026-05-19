@@ -6,10 +6,12 @@
 # Run with: streamlit run app.py
 
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TF warnings in Streamlit logs
 
-import streamlit as st  # Web app framework — turns Python scripts into interactive UIs
 from pathlib import Path
+
+import streamlit as st  # Web app framework — turns Python scripts into interactive UIs
 
 from src.config import DOMAIN_DISCLAIMER
 
@@ -18,19 +20,19 @@ PROJECT_ROOT = Path(__file__).parent
 
 def ensure_kb():
     """Download vector store (pre-built, 39MB) from HF repo on first run."""
-    VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
-    VS_TAR = PROJECT_ROOT / "data" / "vectorstore.tar.gz"
-    if VS_DIR.exists():
+    vs_dir = PROJECT_ROOT / "data" / "vectorstore"
+    vs_tar = PROJECT_ROOT / "data" / "vectorstore.tar.gz"
+    if vs_dir.exists():
         return
     st.info("Downloading pre-built vector store (39MB, first run only)...")
     import requests as req
-    VS_TAR.parent.mkdir(parents=True, exist_ok=True)
+    vs_tar.parent.mkdir(parents=True, exist_ok=True)
     url = "https://huggingface.co/spaces/12412mohamed/culinary-rag-assistant/resolve/main/data/vectorstore.tar.gz"
     with req.get(url, stream=True, timeout=120) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0))
         downloaded = 0
-        with open(VS_TAR, "wb") as f:
+        with open(vs_tar, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
                 downloaded += len(chunk)
@@ -40,9 +42,9 @@ def ensure_kb():
                         st.progress(min(pct, 100))
     st.info("Extracting vector store...")
     import tarfile
-    with tarfile.open(VS_TAR, "r:gz") as t:
+    with tarfile.open(vs_tar, "r:gz") as t:
         t.extractall(path=PROJECT_ROOT / "data")
-    VS_TAR.unlink(missing_ok=True)
+    vs_tar.unlink(missing_ok=True)
     st.success("Vector store ready!")
 
 
@@ -50,8 +52,8 @@ def ensure_vectorstore():
     """Rebuild vector store if not present."""
     from src.ingestion import ingest_documents
     from src.vectorstore import create_vectorstore, save_vectorstore
-    VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
-    if not VS_DIR.exists():
+    vs_dir = PROJECT_ROOT / "data" / "vectorstore"
+    if not vs_dir.exists():
         st.info("Building vector store (takes ~10 min on first run)...")
         chunks = ingest_documents()
         st.info(f"Indexed {len(chunks)} chunks...")
@@ -118,21 +120,19 @@ def main():
     st.title("🍳 Culinary Arts RAG Assistant")
     st.markdown("### AI-Powered Culinary Knowledge Base with Citations")
     st.markdown("---")
-    
+
     init_session()
-    
+
     # Ensure vector store exists (download pre-built from HF on first run)
     with st.spinner("Checking knowledge base..."):
         ensure_kb()
-    
+
     # Lazy-initialize the RAG system (once, then reuse across reruns)
     if st.session_state.rag_system is None:
         with st.spinner("Loading culinary knowledge base..."):
             st.session_state.rag_system = get_system_for_mode(st.session_state.mode)
             st.session_state.rag_system.initialize()
-    
-    system = st.session_state.rag_system
-    
+
     # Sidebar: mode selection, system info, disclaimer, sample questions
     with st.sidebar:
         mode = st.radio(
@@ -145,12 +145,16 @@ def main():
             st.session_state.mode = mode
             st.session_state.rag_system = None  # Force re-initialization
             st.rerun()
-        
+
         st.markdown("---")
         st.header("ℹ️ System Info")
         from src.provider import get_provider
         active_provider = get_provider().value.upper()
-        pipeline_text = "LangGraph Agentic (retrieve → reflect → generate)" if st.session_state.mode == "LangChain + LangGraph" else "Linear (retrieve → generate)"
+        pipeline_text = (
+            "LangGraph Agentic (retrieve → reflect → generate)"
+            if st.session_state.mode == "LangChain + LangGraph"
+            else "Linear (retrieve → generate)"
+        )
         st.markdown(f"""
         **Culinary RAG System**
         - LLM: {active_provider}
@@ -159,10 +163,10 @@ def main():
         - Retrieval: Top-5 chunks, 0.65 cosine threshold
         - Pipeline: {pipeline_text}
         """)
-        
+
         st.header("⚠️ Disclaimer (FR-07)")
         st.caption(DOMAIN_DISCLAIMER)
-        
+
         st.markdown("---")
         st.header("📋 Sample Questions")
         sample_questions = [
@@ -176,7 +180,7 @@ def main():
             if st.button(q, key=f"sample_{q[:20]}"):
                 process_query(q)
                 st.rerun()
-    
+
     # Chat history display
     st.header("💬 Chat")
     for q, r in st.session_state.history:
@@ -184,10 +188,10 @@ def main():
             st.markdown(q)
         with st.chat_message("assistant"):
             st.markdown(r)
-    
+
     # Chat input at the bottom
     prompt = st.chat_input("Ask about culinary techniques, recipes, food safety...")
-    
+
     if prompt:
         process_query(prompt)
         st.rerun()

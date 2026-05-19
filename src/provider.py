@@ -1,7 +1,6 @@
 import os
-from enum import Enum
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
 
 
 class Provider(str, Enum):
@@ -45,13 +44,13 @@ def get_provider() -> Provider:
         return Provider.GROQ
 
 
-def get_provider_config(provider: Optional[Provider] = None) -> ProviderConfig:
+def get_provider_config(provider: Provider | None = None) -> ProviderConfig:
     if provider is None:
         provider = get_provider()
     return PROVIDER_REGISTRY[provider]
 
 
-def get_api_key() -> Optional[str]:
+def get_api_key() -> str | None:
     cfg = get_provider_config()
     if not cfg.api_key_env:
         return None

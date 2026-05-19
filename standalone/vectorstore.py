@@ -1,9 +1,9 @@
 # Standalone vector store — no LangChain FAISS wrapper, uses raw FAISS API + manual JSON metadata.
-import faiss  # Facebook AI Similarity Search — raw C++ bindings (no LangChain wrapper)
-import numpy as np
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+
+import faiss  # Facebook AI Similarity Search — raw C++ bindings (no LangChain wrapper)
+import numpy as np
 
 
 class VectorStore:
@@ -13,20 +13,20 @@ class VectorStore:
     def __init__(self, dimension: int = 384):
         self.dimension = dimension
         self.index = faiss.IndexFlatIP(dimension)  # Inner Product = cosine for normalized vectors
-        self.metadata: List[Dict] = []  # Parallel list: index position ↔ metadata dict
+        self.metadata: list[dict] = []  # Parallel list: index position ↔ metadata dict
 
     @property
     def size(self) -> int:
         return self.index.ntotal  # Number of vectors currently in the index
 
-    def add(self, embeddings: np.ndarray, metadata: List[Dict]):
+    def add(self, embeddings: np.ndarray, metadata: list[dict]):
         """Add new vectors + their metadata to the index."""
         if len(embeddings.shape) == 1:
             embeddings = embeddings.reshape(1, -1)  # Single vector → 2D array
         self.index.add(embeddings.astype(np.float32))
         self.metadata.extend(metadata)
 
-    def search(self, query_vector: np.ndarray, k: int = 5) -> List[Dict]:
+    def search(self, query_vector: np.ndarray, k: int = 5) -> list[dict]:
         """Find k nearest neighbors by cosine similarity. Returns metadata dicts with score."""
         if self.size == 0:
             return []
@@ -53,5 +53,5 @@ class VectorStore:
     def load(self, path: Path):
         """Load previously saved FAISS index + metadata from disk."""
         self.index = faiss.read_index(str(path / "index.faiss"))
-        with open(path / "metadata.json", "r", encoding="utf-8") as f:
+        with open(path / "metadata.json", encoding="utf-8") as f:
             self.metadata = json.load(f)

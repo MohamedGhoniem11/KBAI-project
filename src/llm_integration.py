@@ -1,32 +1,31 @@
-import os
-from typing import List, Dict, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 
 from .config import DOMAIN_DISCLAIMER
+from .provider import Provider, get_api_key, get_default_model, get_provider
 from .retrieval import RetrievedChunk
-from .provider import get_provider, get_api_key, get_default_model, Provider
 
 
 def _build_prompt_template() -> ChatPromptTemplate:
     return ChatPromptTemplate.from_messages([
-        ("system", """You are a culinary expert assistant. Your response must be based ONLY on the provided retrieved context.
-
-RETRIEVED CONTEXT:
-{context}
-
-INSTRUCTIONS:
-1. Answer the user's question clearly and concisely using ONLY the context above
-2. Do not hallucinate or add information not present in the context
-3. Cite sources inline using [Source X] format matching the context labels
-4. If no relevant context is found, state that clearly
-5. Do not include any disclaimers (these are appended automatically)"""),
+        ("system", (
+            "You are a culinary expert assistant. Your response must be based ONLY on "
+            "the provided retrieved context.\n\n"
+            "RETRIEVED CONTEXT:\n"
+            "{context}\n\n"
+            "INSTRUCTIONS:\n"
+            "1. Answer the user's question clearly and concisely using ONLY the context above\n"
+            "2. Do not hallucinate or add information not present in the context\n"
+            "3. Cite sources inline using [Source X] format matching the context labels\n"
+            "4. If no relevant context is found, state that clearly\n"
+            "5. Do not include any disclaimers (these are appended automatically)"
+        )),
         ("user", "USER QUESTION: {query}")
     ])
 
 
 class LLMGenerator:
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: str | None = None):
         self.provider = get_provider()
         self.model = model or get_default_model()
         self.api_key = get_api_key()
@@ -48,7 +47,7 @@ class LLMGenerator:
 
         raise ValueError(f"Unsupported provider: {self.provider}")
 
-    def generate(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> dict:
+    def generate(self, query: str, chunks: list[RetrievedChunk], citations: list[dict]) -> dict:
         context_parts = []
         for i, chunk in enumerate(chunks):
             context_parts.append(f"[Source {i+1}] (Page {chunk.page}, {chunk.source}): {chunk.content}")
@@ -73,7 +72,7 @@ class LLMGenerator:
             print(f"LLM API error ({self.provider}): {e}")
             return self._generate_fallback(query, chunks, citations)
 
-    def _format_citations(self, citations: List[Dict]) -> str:
+    def _format_citations(self, citations: list[dict]) -> str:
         if not citations:
             return "No sources found"
 
@@ -86,12 +85,16 @@ class LLMGenerator:
 
         return "\n".join(lines)
 
-    def _generate_fallback(self, query: str, chunks: List[RetrievedChunk], citations: List[Dict]) -> dict:
+    def _generate_fallback(self, query: str, chunks: list[RetrievedChunk], citations: list[dict]) -> dict:
         if not chunks:
+            no_info_msg = (
+                "I don't have relevant information in my knowledge base. "
+                "Try asking about recipes, cooking techniques, or food safety."
+            )
             return {
-                "answer": "I don't have relevant information in my knowledge base. Try asking about recipes, cooking techniques, or food safety.",
+                "answer": no_info_msg,
                 "retrieved_chunks": [],
-                "citations": []
+                "citations": [],
             }
 
         lines = ["Here's what I found in my knowledge base:\n"]
@@ -106,5 +109,5 @@ class LLMGenerator:
         }
 
 
-def create_llm_generator(model: Optional[str] = None) -> LLMGenerator:
+def create_llm_generator(model: str | None = None) -> LLMGenerator:
     return LLMGenerator(model)

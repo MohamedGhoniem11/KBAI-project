@@ -1,8 +1,10 @@
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-import streamlit as st
 from pathlib import Path
+
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).parent
 
@@ -28,14 +30,14 @@ st.markdown("""
 
 
 def ensure_kb():
-    KB_DIR = PROJECT_ROOT / "KB"
-    KB_ZIP = PROJECT_ROOT / "KB.zip"
-    DRIVE_URL = "https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4"
+    kb_dir = PROJECT_ROOT / "KB"
+    kb_zip = PROJECT_ROOT / "KB.zip"
+    drive_url = "https://drive.google.com/uc?export=download&id=1RskXkZXqQiszdQ8QkEYySKlgToQPBZO4"
 
-    if KB_DIR.exists() and any(KB_DIR.iterdir()):
+    if kb_dir.exists() and any(kb_dir.iterdir()):
         return
 
-    if not KB_ZIP.exists():
+    if not kb_zip.exists():
         st.info("Downloading knowledge base (272MB, first run only)...")
         import urllib.request
         import zipfile
@@ -44,10 +46,10 @@ def ensure_kb():
             if total > 0 and count % 20 == 0:
                 st.progress(min(int(count * block * 100 / total), 100))
 
-        urllib.request.urlretrieve(DRIVE_URL, KB_ZIP, dl)
+        urllib.request.urlretrieve(drive_url, kb_zip, dl)
 
     st.info("Extracting knowledge base...")
-    with zipfile.ZipFile(KB_ZIP, "r") as z:
+    with zipfile.ZipFile(kb_zip, "r") as z:
         z.extractall(PROJECT_ROOT)
 
 
@@ -55,8 +57,8 @@ def ensure_vectorstore():
     from src.ingestion import ingest_documents
     from src.vectorstore import create_vectorstore, save_vectorstore
 
-    VS_DIR = PROJECT_ROOT / "data" / "vectorstore"
-    if not VS_DIR.exists():
+    vs_dir = PROJECT_ROOT / "data" / "vectorstore"
+    if not vs_dir.exists():
         st.info("Building vector store (takes ~10 min on first run)...")
         chunks = ingest_documents()
         st.info(f"Indexed {len(chunks)} chunks...")

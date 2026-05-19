@@ -1,6 +1,6 @@
 # Standalone embedding module — no LangChain wrapper, uses SentenceTransformer directly.
-from sentence_transformers import SentenceTransformer  # Direct model loading (no wrapper)
 import numpy as np
+from sentence_transformers import SentenceTransformer  # Direct model loading (no wrapper)
 
 
 class Embeddings:

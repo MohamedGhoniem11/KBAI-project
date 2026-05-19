@@ -3,10 +3,10 @@
 #        python rebuild_and_test.py --standalone  (standalone mode)
 # Deletes old vector store → re-ingests all KB/ PDFs → rebuilds FAISS index → tests retrieval
 import os
-import sys
 import shutil
-from pathlib import Path
+import sys
 import warnings
+from pathlib import Path
 
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
@@ -30,12 +30,13 @@ if not KB_DIR.exists() or not any(KB_DIR.iterdir()):
     print("   Then unzip to KB/ and run this script again.")
     sys.exit(1)
 
-print(f"\n✅ KB/ directory found with documents")
+print("\n✅ KB/ directory found with documents")
 
-if USE_STANDALONE:
-    vs_path = project_root / "data" / "vectorstore_standalone"
-else:
-    vs_path = project_root / "data" / "vectorstore"
+vs_path = (
+    project_root / "data" / "vectorstore_standalone"
+    if USE_STANDALONE
+    else project_root / "data" / "vectorstore"
+)
 
 # Step 1: Delete old vector store (forces full rebuild)
 if vs_path.exists():
@@ -46,13 +47,13 @@ if vs_path.exists():
 print("\n[1/3] Ingesting PDF/DOCX documents...")
 
 if USE_STANDALONE:
+    from standalone.config import EMBEDDING_MODEL
+    from standalone.embeddings import Embeddings
     from standalone.ingestion import ingest_documents
     from standalone.vectorstore import VectorStore
-    from standalone.embeddings import Embeddings
-    from standalone.config import EMBEDDING_MODEL
 
     chunks = ingest_documents()
-    print(f"\n[2/3] Creating vector store with normalized embeddings...")
+    print("\n[2/3] Creating vector store with normalized embeddings...")
     embeddings = Embeddings(EMBEDDING_MODEL)
     texts = [c["content"] for c in chunks]
     vectors = embeddings.embed_documents(texts)
@@ -63,7 +64,7 @@ if USE_STANDALONE:
 
     # Step 3: Test retrieval with sample queries
     print("\n[3/3] Testing retrieval (FR-03)...")
-    from standalone.config import TOP_K, SIMILARITY_THRESHOLD
+    from standalone.config import SIMILARITY_THRESHOLD
     from standalone.retrieval import RetrievalEngine
 
     engine = RetrievalEngine(vectorstore, embeddings)
@@ -82,7 +83,7 @@ else:
     from src.ingestion import ingest_documents
     chunks = ingest_documents()
 
-    print(f"\n[2/3] Creating vector store with normalized embeddings...")
+    print("\n[2/3] Creating vector store with normalized embeddings...")
     from src.vectorstore import create_vectorstore, save_vectorstore
     vectorstore = create_vectorstore(chunks)
     save_vectorstore(vectorstore)

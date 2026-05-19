@@ -1,8 +1,7 @@
 # Standalone retrieval — no LangChain, manual embedding + FAISS search + threshold filter.
-from typing import List, Dict, Optional
+from .config import SIMILARITY_THRESHOLD, TOP_K
 from .embeddings import Embeddings
 from .vectorstore import VectorStore
-from .config import TOP_K, SIMILARITY_THRESHOLD
 
 
 class RetrievalEngine:
@@ -20,7 +19,7 @@ class RetrievalEngine:
         self.top_k = top_k
         self.threshold = threshold
 
-    def retrieve(self, query: str) -> List[Dict]:
+    def retrieve(self, query: str) -> list[dict]:
         """Embed the query, search the FAISS index, filter results below threshold."""
         query_vec = self.embeddings.embed_query(query)  # String → 384-dim numpy array
         results = self.vectorstore.search(query_vec, self.top_k)  # FAISS nearest neighbors

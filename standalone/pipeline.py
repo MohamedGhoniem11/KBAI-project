@@ -2,11 +2,12 @@
 # No LangChain, no LangGraph. Linear pipeline (no agentic reflection loop).
 import os
 from pathlib import Path
-from .config import VECTORSTORE_DIR, EMBEDDING_MODEL
+
+from .config import EMBEDDING_MODEL, VECTORSTORE_DIR
 from .embeddings import Embeddings
-from .vectorstore import VectorStore
-from .retrieval import RetrievalEngine
 from .llm_integration import LLMGenerator
+from .retrieval import RetrievalEngine
+from .vectorstore import VectorStore
 
 
 class StandaloneRAGSystem:
@@ -75,8 +76,8 @@ class StandaloneRAGSystem:
 
     def add_document(self, file_path: Path):
         """Add a PDF/DOCX to the standalone vector store."""
-        from .ingestion import load_documents, chunk_documents
-        from .config import CHUNK_SIZE, CHUNK_OVERLAP
+        from .config import CHUNK_OVERLAP, CHUNK_SIZE
+        from .ingestion import chunk_documents, load_documents
 
         if not file_path.exists():
             raise FileNotFoundError(f"Document not found: {file_path}")
